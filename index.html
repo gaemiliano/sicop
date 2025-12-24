@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>SICOP V17.30 - GMBH ULTIMATE (STATUS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    /* DESIGN SYSTEM (SEU ORIGINAL) */
+    :root {
+      --primary: #3b82f6; --dark: #0f172a; --panel: #1e293b; --border: #334155; --text: #f8fafc;
+      --accent: #0ea5e9; --danger: #ef4444; --warn: #f59e0b; --success: #10b981; --whatsapp: #25D366; --gold: #facc15;
+      --lime: #32CD32;
+      /* NOVAS CORES DE STATUS */
+      --status-off: #dc2626; --status-manu: #eab308; --status-on: #22c55e;
+    }
+    * { box-sizing: border-box; outline: none; font-family: 'Segoe UI', sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--dark); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* HEADER */
+    header { height: 60px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 0 15px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+    .logo { font-size: 1.4rem; font-weight: 800; display: flex; align-items: center; gap: 10px; color: white; letter-spacing: 1px; }
+    .logo span { color: var(--accent); }
+    
+    .weather-widget { display: flex; gap: 15px; font-size: 0.85rem; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border); }
+    @media (max-width: 900px) { .weather-widget, .logo span { display: none; } .logo { font-size: 1.2rem; } }
+
+    .nav-tabs { display: flex; gap: 5px; background: #020617; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+    .tab-btn { background: transparent; color: #94a3b8; border: none; padding: 8px 12px; cursor: pointer; border-radius: 6px; font-weight: 600; transition: 0.2s; font-size: 0.9rem; }
+    .tab-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+    .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+    /* ESTILO NOVO PARA ABA STATUS */
+    .tab-status-alert { color: var(--status-manu) !important; }
+
+    /* TOOLBAR */
+    .toolbar-container { display: flex; gap: 10px; align-items: center; }
+    .toolbar-group { display: flex; gap: 3px; background: rgba(255,255,255,0.03); padding: 3px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+
+    /* BOTÕES */
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; transition: 0.2s; font-size: 0.9rem; color:white; }
+    .btn-compact { padding: 6px 10px; font-size: 0.85rem; border-radius: 6px; }
+    .btn-primary { background: var(--primary); }
+    .btn-danger { background: var(--danger); }
+    .btn-dark { background: #334155; border: 1px solid #475569; }
+    .btn-whatsapp { background: var(--whatsapp); color: white; }
+    .btn-whatsapp:hover { background: #1ebc57; }
+    .btn-csv { background: #15803d; color: white; border:none; }
+    .btn-csv:hover { background: #166534; }
+    .btn-edit { background: #eab308; color: black !important; } 
+    .btn-edit:hover { background: #ca8a04; }
+    .mic-btn { background: transparent; color: var(--accent); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; padding: 0 10px; }
+    .mic-btn.listening { color: var(--danger); animation: pulseRed 1.5s infinite; border-color: var(--danger); }
+
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+    .main-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+    /* SIDEBAR */
+    .sidebar { width: 380px; background: #0b1120; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 900; box-shadow: 5px 0 15px rgba(0,0,0,0.3); transition: width 0.3s ease; }
+    @media (max-width: 600px) { .sidebar { width: 100%; position: absolute; height: 100%; display: none; } .sidebar.mobile-open { display: flex; } }
+
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
+    .kpi-item { padding: 10px; text-align: center; border: 1px solid #1e293b; background: #111827; }
+    .kpi-item strong { display: block; font-size: 1.4rem; color: white; }
+    .kpi-item small { color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; font-weight:bold; }
+    
+    .sidebar-tools { padding: 10px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .search-wrapper { display: flex; gap: 5px; }
+    .search-input { flex: 1; background: var(--dark); border: 1px solid var(--border); color: white; padding: 8px; border-radius: 6px; font-size: 0.9rem; }
+    .tool-btn { background: var(--dark); border: 1px solid var(--border); color: #94a3b8; width: 36px; border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+    .tool-btn:hover { background: var(--primary); color: white; }
+    
+    #filterContainer { display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid var(--border); }
+    #feed { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* FEED CARD */
+    .feed-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: all 0.2s; cursor: pointer; display: flex; flex-direction: column; }
+    .feed-card:hover { border-color: var(--accent); background: #2a3a55; }
+    .feed-header { padding: 12px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+    .feed-info { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+    .cam-name { font-weight: bold; color: var(--text); font-size: 0.9rem; }
+    .cam-meta { font-size: 0.75rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    .feed-details { display: none; border-top: 1px solid var(--border); background: #0f172a; max-height: 300px; overflow-y: auto; }
+    .feed-card.expanded .feed-details { display: block; } 
+    .img-container { position: relative; width: 100%; height: 160px; overflow: hidden; flex-shrink: 0; background: #000; }
+    .feed-img { width: 100%; height: 100%; object-fit: cover; }
+    .expand-btn { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 8px; cursor: pointer; transition: 0.2s; z-index: 10; }
+    .expand-btn:hover { background: var(--primary); border-color: var(--primary); }
+    .action-row { display: flex; gap: 5px; padding: 10px; background: var(--panel); position:sticky; bottom:0; border-top:1px solid var(--border); }
+
+    /* NOVO: CARDS DE STATUS DE CAMERA */
+    .status-card { background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .status-card.offline { border-left: 4px solid var(--status-off); }
+    .status-card.manutencao { border-left: 4px solid var(--status-manu); }
+    .status-card strong { color: #fff; font-size: 0.9rem; }
+    .status-card small { color: #94a3b8; display: block; font-size: 0.75rem; }
+
+    /* MAPA */
+    .page { flex: 1; display: none; flex-direction: column; height: 100%; position: relative; }
+    .page.active { display: flex; }
+    #map { width: 100%; height: 100%; }
+    .map-overlay { position: absolute; top: 15px; left: 60px; z-index: 800; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+    .map-overlay > * { pointer-events: auto; }
+    
+    .glass-input { background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border); color: white; padding: 8px 12px; border-radius: 30px; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.6); font-size: 0.85rem; }
+    #mapSearch { width: 120px !important; transition: width 0.3s; }
+    #mapSearch:focus { width: 180px !important; }
+    #addrSearch { width: 150px !important; transition: width 0.3s; }
+    #addrSearch:focus { width: 220px !important; }
+
+    /* BOTÕES FLUTUANTES */
+    .glass-btn { background: rgba(15, 23, 42, 0.95); color: white; border: 1px solid var(--border); padding: 8px 15px; border-radius: 30px; cursor: pointer; font-weight: bold; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.3s; }
+    .glass-btn:hover { background: var(--primary); border-color: var(--primary); }
+    
+    .glass-btn.active { 
+        background: rgba(15, 23, 42, 0.95) !important; 
+        border: 2px solid var(--accent) !important; 
+        color: var(--accent) !important; 
+        box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+    }
+
+    /* CLUSTERS - PADRÃO INSTITUCIONAL GMBH (ALTA VISIBILIDADE) */
+
+/* Pequeno (Até 10) - Azul GCM (Claro/Ciano): Ótimo contraste em áreas urbanas densas */
+.marker-cluster-small { background-color: rgba(14, 165, 233, 0.5) !important; }
+.marker-cluster-small div { 
+    background-color: #0ea5e9 !important; 
+    color: white !important; 
+    font-weight: 800; 
+    border: 2px solid #ffffff; 
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Médio (Até 100) - Azul Royal: Identidade visual clássica da corporação */
+.marker-cluster-medium { background-color: rgba(30, 64, 175, 0.5) !important; }
+.marker-cluster-medium div { 
+    background-color: #1e40af !important; 
+    color: white !important; 
+    font-weight: 800; 
+    border: 2px solid #ffffff; 
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Grande (Mais de 100) - Azul Marinho Profundo: Para grandes concentrações de câmeras */
+.marker-cluster-large { background-color: rgba(15, 23, 42, 0.6) !important; }
+.marker-cluster-large div { 
+    background-color: #0f172a !important; 
+    color: #3b82f6 !important; 
+    font-weight: 900; 
+    border: 2px solid #3b82f6; 
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+    .custom-div-icon { background: transparent; border: none; }
+    .marker-pin { width: 40px; height: 40px; border-radius: 50% 50% 50% 0; background: #3b82f6; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -20px 0 0 -20px; display: flex; justify-content: center; align-items: center; border: 2px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.5); }
+    .marker-pin i { transform: rotate(45deg); color: white; font-size: 16px; }
+    
+    /* NOVAS CORES DE PINOS */
+    .pin-critico { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
+    .pin-alerta { background: #f59e0b; }
+    .pin-obs { background: #10b981; }
+    .pin-offline { background: var(--status-off) !important; box-shadow: 0 0 10px var(--status-off); }
+    .pin-manutencao { background: var(--status-manu) !important; }
+    
+    .pulse-animation-icon { background: transparent; pointer-events: none; }
+    .pulse-circle { width: 100%; height: 100%; border-radius: 50%; opacity: 0; animation: radarPulse 2s infinite ease-out; box-shadow: 0 0 10px currentColor; border: 2px solid currentColor; background: currentColor; }
+    @keyframes radarPulse { 0% { transform: scale(0.1); opacity: 0.8; } 100% { transform: scale(2.5); opacity: 0; } }
+    
+    .asset-marker { display: flex; justify-content: center; align-items: center; background: #1e293b; border: 2px solid white; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.5); color:white; font-size: 14px; }
+    .asset-pm { border-color: #3b82f6; color: #3b82f6; }
+    .asset-bm { border-color: #ef4444; color: #ef4444; }
+
+    .dash-container { padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; height: 100%; }
+    .chart-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; height: 350px; }
+    .chart-wrapper { position: relative; width: 100%; height: 300px; }
+    
+    .full-table { width: 100%; border-collapse: collapse; min-width: 800px; background: var(--panel); }
+    .full-table th { background: #020617; color: var(--accent); padding: 12px; text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+    .full-table td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; vertical-align: middle; }
+    
+    .plantao-container { padding: 20px; display: flex; flex-direction: column; height: 100%; }
+    .log-input-area { display: flex; gap: 10px; margin-bottom: 20px; background: var(--panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+    .log-list { flex: 1; overflow-y: auto; background: #000; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: monospace; }
+    .log-item { border-left: 3px solid var(--accent); padding: 8px 12px; margin-bottom: 5px; background: rgba(255,255,255,0.03); }
+
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+    .modal-box { background: var(--panel); width: 650px; max-width: 95%; padding: 0; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 25px 50px -12px black; overflow: hidden; display: flex; flex-direction: column; animation: slideUp 0.3s ease; }
+    .modal-header { padding: 15px 25px; background: #020617; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 25px; overflow-y: auto; max-height: 70vh; display: flex; flex-direction: column; gap: 20px; }
+    .modal-footer { padding: 20px 25px; background: #020617; border-top: 1px solid var(--border); display: flex; gap: 15px; }
+
+    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    select, input, textarea { width: 100%; padding: 12px 16px; background: #020617; border: 1px solid #334155; color: white; border-radius: 8px; transition: 0.2s; font-size: 0.95rem; }
+    
+    #login { position: fixed; z-index: 9999; top:0; left:0; width:100%; height:100%; background: #020617; display:flex; justify-content:center; align-items:center; }
+    .login-card { width: 360px; padding: 50px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    
+    .password-wrapper { position: relative; width: 100%; }
+    .toggle-pass { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; }
+    
+    .credits-box { background: rgba(255,255,255,0.05); padding: 15px; border-left: 3px solid var(--primary); margin: 10px 0; text-align:left; }
+  </style>
+</head>
+<body>
+
+<div id="login">
+  <div id="loader" style="color:var(--accent); display:flex; flex-direction:column; align-items:center">
+    <i class="fa-solid fa-radar fa-spin fa-2x" style="margin-bottom:20px"></i>
+    <span>SICOP V17.30 - Carregando...</span>
+  </div>
+  <div id="loginForm" class="login-card" style="display:none">
+    <h1 style="margin:0; color:white; font-size:2rem">SICOP <span style="color:var(--accent)">V17.30</span></h1>
+    <p style="color:#64748b; margin-top:5px; font-size:0.9rem; letter-spacing:1px">GMBH ULTIMATE (STATUS)</p>
+    
+    <div style="margin-top:30px; text-align:left">
+      <label>Matrícula / Usuário</label>
+      <input id="u" placeholder="Ex: BM12345 ou ADMIN" style="margin-bottom:15px; text-transform:uppercase;" oninput="this.value = this.value.toUpperCase()">
+      <label>Senha</label>
+      <div class="password-wrapper">
+        <input id="p" type="password" placeholder="Sua senha" style="margin-bottom:25px; padding-right:40px">
+        <i class="fa-solid fa-eye toggle-pass" onclick="togglePass()"></i>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="entrar()" style="width:100%">INICIAR SESSÃO</button>
+    <div style="margin-top:20px; font-size:0.8rem; cursor:pointer; color:var(--danger); opacity:0.6" onclick="resetarSistema()">Resetar Sistema (Emergência)</div>
+  </div>
+</div>
+
+<div id="app" style="display:none; height:100%; flex-direction:column">
+  
+  <header>
+    <div class="logo"><i class="fa-solid fa-crosshairs"></i> SICOP <span>V17.30</span></div>
+    
+    <div class="weather-widget" id="weatherWidget">
+      <div style="display:flex;align-items:center;gap:5px"><i class="fa-solid fa-user-shield"></i> <span id="displayUser">--</span></div>
+      <div style="display:flex;align-items:center;gap:5px; border-left:1px solid #555; padding-left:10px;"><i class="fa-solid fa-temperature-half" style="color:var(--warn)"></i> <span id="w-temp">--°C</span></div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="mudarTab('mapa')"><i class="fa-solid fa-map"></i> Mapa</button>
+      <button class="tab-btn" onclick="mudarTab('lista')"><i class="fa-solid fa-list"></i> Lista</button>
+      <button class="tab-btn tab-status-alert" onclick="mudarTab('status')"><i class="fa-solid fa-triangle-exclamation"></i> Status</button>
+      <button class="tab-btn" onclick="mudarTab('dash')"><i class="fa-solid fa-chart-pie"></i> B.I.</button>
+      <button class="tab-btn" onclick="mudarTab('plantao')"><i class="fa-solid fa-book"></i> Plantão</button>
+      <button class="tab-btn" onclick="toggleSidebarMobile()" style="display:none" id="mobileMenuBtn"><i class="fa-solid fa-bars"></i></button>
+    </div>
+
+    <div class="toolbar-container">
+      <div class="toolbar-group" title="Dados e Backup">
+         <button class="btn btn-dark btn-compact" onclick="fazerBackup()" title="Backup Completo ZIP" style="color:var(--gold); border-color:var(--gold)"><i class="fa-solid fa-file-zipper"></i></button>
+         <label class="btn btn-dark btn-compact" title="Restaurar Backup ZIP" style="cursor:pointer; color:var(--accent); border-color:var(--accent)">
+           <i class="fa-solid fa-upload"></i> <input type="file" hidden accept=".zip" onchange="restaurarBackup(this)">
+         </label>
+      </div>
+      <div class="toolbar-group" title="JSON e Excel">
+         <button class="btn btn-dark btn-compact" onclick="exportarDadosTurno()" title="Baixar JSON"><i class="fa-solid fa-download"></i></button>
+         <button class="btn btn-csv btn-compact" onclick="exportarCSV()" title="Baixar Excel (CSV)"><i class="fa-solid fa-table"></i></button>
+         <label class="btn btn-dark btn-compact" style="cursor:pointer" title="Importar JSON"><i class="fa-solid fa-file-import"></i> <input type="file" hidden accept=".json" onchange="importarDadosTurno(this)"></label>
+      </div>
+      <div class="toolbar-group" title="Sistema">
+         <button class="btn btn-dark btn-compact" onclick="abrirSobre()" title="Sobre"><i class="fa-solid fa-circle-info"></i></button>
+         <button class="btn btn-dark btn-compact" id="btnAdmin" onclick="abrirModalUsers()" title="Gestão" style="display:none"><i class="fa-solid fa-users-gear"></i></button>
+         <button class="btn btn-dark btn-compact" onclick="toggleFullScreen()" title="Tela Cheia"><i class="fa-solid fa-expand"></i></button>
+      </div>
+      <div class="toolbar-group" title="Relatórios e Encerramento" style="border-color: rgba(239, 68, 68, 0.3);">
+        <button class="btn btn-dark btn-compact" onclick="gerarRelatorioBI()" title="Gerar Dados para B.I. (PowerBI/Excel)" style="color:#0ea5e9; border-color:#0ea5e9">
+    <i class="fa-solid fa-chart-column"></i> BI
+</button>
+        <button class="btn btn-danger btn-compact" onclick="exportarRelatorioExecutivo()" title="PDF Geral" style="background:#dc2626; border:none"><i class="fa-solid fa-file-pdf"></i></button>
+        <button class="btn btn-whatsapp btn-compact" onclick="encerrarPlantaoZap()" title="Encerrar Plantão"><i class="fa-brands fa-whatsapp"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <style>
+    @media (max-width: 600px) {
+        #mobileMenuBtn { display: inline-block !important; }
+        .logo, .weather-widget { display: none !important; }
+        .nav-tabs { flex: 1; overflow-x: auto; }
+        header { padding: 0 5px; gap: 5px; }
+        .btn span { display: none; }
+        .glass-input { width: 100px !important; }
+        .toolbar-container { display:none; }
+    }
+  </style>
+
+  <div class="main-container">
+    <div class="sidebar" id="sidebar">
+      <div class="kpi-grid">
+        <div class="kpi-item"><strong id="k_abertas" style="color:var(--warn)">0</strong><small>Pendentes</small></div>
+        <div class="kpi-item"><strong id="k_hoje" style="color:var(--accent)">0</strong><small>Hoje</small></div>
+      </div>
+      
+      <div class="sidebar-tools">
+        <div class="search-wrapper">
+            <input type="text" class="search-input" placeholder="Buscar câmera..." onkeyup="buscarCamSidebar(this.value)">
+            <button class="tool-btn" onclick="toggleFilter()" title="Filtrar por Data"><i class="fa-solid fa-filter"></i></button>
+        </div>
+        
+        <div id="filterContainer">
+            <label style="margin-bottom:5px">Filtrar por Data:</label>
+            <div style="display:flex; gap:5px">
+                <input type="date" id="filtroData" onchange="atualizarTudo()" style="padding:6px">
+                <button onclick="limparFiltroData()" class="btn-dark" style="padding:0 10px"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+      </div>
+
+      <div style="padding:5px 15px; color:#94a3b8; font-size:0.75rem; text-align:center">
+        <i class="fa-solid fa-hand-pointer"></i> Clique para detalhes
+      </div>
+
+      <div id="feedOcorrencias"></div>
+    </div>
+
+    <div id="tab-mapa" class="page active">
+      <div class="map-overlay">
+        <button class="glass-btn" onclick="importarKML_Click()"><i class="fa-solid fa-file-import"></i> KML</button>
+        <input type="file" id="kmlFile" hidden accept=".kml,.xml" onchange="processarKML(this)">
+        <button class="glass-btn" id="btnHeat" onclick="toggleHeatmap()"><i class="fa-solid fa-fire"></i> Calor</button>
+        <button class="glass-btn" id="btnRadius" onclick="toggleRadiusTool()" title="Zona"><i class="fa-solid fa-draw-polygon"></i> Zona</button>
+        <button class="glass-btn" id="btnPin" onclick="togglePinMode()" title="Marcar Local Manualmente" style="border-color: var(--accent); color: var(--accent);">
+            <i class="fa-solid fa-location-dot"></i> Ponto
+        </button>
+        <select id="filtroArea" class="glass-input" onchange="renderMap()" style="width:140px">
+            <option value="TODOS">Todas Áreas</option>
+        </select>
+        <input id="mapSearch" class="glass-input" placeholder="🔍 Câmera..." onkeyup="buscarCam(this.value)">
+        <input id="addrSearch" class="glass-input" placeholder="📍 Endereço BH..." onchange="irParaEndereco(this.value)">
+        
+        <div class="resource-toolbar">
+            <button class="glass-btn" onclick="addAsset('PM')" style="padding: 8px 12px; border-radius: 50%;" title="VP (Carro)"><i class="fa-solid fa-car-side"></i></button>
+            <button class="glass-btn" onclick="addAsset('BM')" style="padding: 8px 12px; border-radius: 50%;" title="SAMU/BM"><i class="fa-solid fa-truck-medical"></i></button>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <div id="tab-lista" class="page">
+        <div class="table-container">
+            <h2 style="margin:0 0 20px 0; color:var(--accent)">Registro Global de Ocorrências</h2>
+            <table class="full-table">
+                <thead><tr><th>ID</th><th>Data/Hora</th><th>Local (Câmera + Endereço)</th><th>Motivo</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="tabelaListaGeral"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-status" class="page">
+        <div class="dash-container" style="display:block">
+            <h2 style="color:var(--status-manu)">
+                <i class="fa-solid fa-triangle-exclamation"></i> Relatório de Câmeras Inoperantes
+            </h2>
+            
+            <button class="btn btn-danger" onclick="gerarRelatorioStatusPDF()" style="margin-bottom:15px; width:100%">
+                <i class="fa-solid fa-file-pdf"></i> BAIXAR RELATÓRIO PARA MANUTENÇÃO
+            </button>
+            <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; margin-bottom:20px">
+                <div style="display:flex; justify-content:space-around; text-align:center">
+                    <div><h1 style="margin:0; color:var(--status-off)" id="st_off">0</h1><small>OFFLINE</small></div>
+                    <div><h1 style="margin:0; color:var(--status-manu)" id="st_manu">0</h1><small>MANUTENÇÃO</small></div>
+                </div>
+            </div>
+            <div id="listaStatus" style="max-width:800px; margin:0 auto"></div>
+        </div>
+    </div>
+
+    <div id="tab-dash" class="page">
+      <div class="dash-container">
+        <div class="chart-box"><h3 style="margin-top:0"><i class="fa-solid fa-chart-pie"></i> Motivos</h3><div class="chart-wrapper"><canvas id="chartMotivo"></canvas></div></div>
+        <div class="chart-box"><h3 style="margin-top:0"><i class="fa-solid fa-triangle-exclamation"></i> Gravidade</h3><div class="chart-wrapper"><canvas id="chartGravidade"></canvas></div></div>
+        <div class="chart-box"><h3 style="margin-top:0"><i class="fa-solid fa-map-location-dot"></i> Por Área</h3><div class="chart-wrapper"><canvas id="chartArea"></canvas></div></div>
+        <div class="chart-box"><h3 style="margin-top:0"><i class="fa-solid fa-chart-line"></i> Evolução</h3><div class="chart-wrapper"><canvas id="chartTempo"></canvas></div></div>
+      </div>
+    </div>
+
+    <div id="tab-plantao" class="page">
+      <div class="plantao-container">
+        <h2 style="margin-top:0; color:var(--accent)"><i class="fa-solid fa-book-open"></i> Livro de Plantão (Logs)</h2>
+        <div class="log-input-area">
+          <input id="logInput" type="text" placeholder="Digite o registro..." style="flex:1">
+          <button class="mic-btn" onclick="startDictation('logInput', this)"><i class="fa-solid fa-microphone"></i></button>
+          <button class="btn btn-primary" onclick="adicionarLog()">Gravar</button>
+        </div>
+        <div id="logList" class="log-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modalImgFull" class="modal" onclick="this.style.display='none'">
+    <div style="position: relative; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+        <img id="fullImageElement" src="" alt="Ampliado" 
+             style="max-width: 95%; max-height: 95%; object-fit: contain; border: 4px solid var(--accent); border-radius: 12px; box-shadow: 0 0 50px rgba(0,0,0,0.8); background: #000;">
+        <div style="position: absolute; top: 20px; right: 20px; color: white; font-size: 2rem; cursor: pointer;">
+            <i class="fa-solid fa-circle-xmark"></i>
+        </div>
+    </div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warn)"></i> Nova Ocorrência</div>
+      <button onclick="fecharModal()" style="background:transparent; border:none; color:#fff; font-size:1.5rem; cursor:pointer">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#0f172a; padding:10px; border-radius:6px; border:1px solid #334155; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center">
+         <span style="font-size:0.85rem; color:#aaa; font-weight:bold">STATUS DA CÂMERA:</span>
+         <select id="quickStatus" onchange="quickUpdateStatus()" style="width:200px; padding:6px; font-weight:bold; background:#1e293b; border-color:#334155">
+             <option value="ONLINE">🟢 ONLINE</option>
+             <option value="OFFLINE">🔴 OFFLINE</option>
+             <option value="MANUTENCAO">🟡 MANUTENÇÃO</option>
+         </select>
+      </div>
+
+      <div style="background:#020617; padding:15px; border-radius:8px; border-left:4px solid var(--accent); display:flex; align-items:center; gap:15px">
+        <i class="fa-solid fa-video fa-2x" style="color:var(--accent)"></i>
+        <div style="flex:1">
+          <label style="color:var(--accent); margin-bottom:0">Local</label>
+          <div style="display:flex; gap:5px; margin-bottom: 5px;">
+             <select id="selCam" style="background:transparent; border:none; font-weight:bold; font-size:1.1rem; color:white; padding:0; flex:1" onchange="atualizarStatusEEndereco(this.value)"></select>
+             <button onclick="verStreetView()" class="btn btn-dark btn-compact" title="Ver Street View"><i class="fa-solid fa-street-view"></i></button>
+          </div>
+          <input id="endAutomatico" placeholder="Endereço (Edite se necessário)" style="background: #0f172a; border: 1px solid #334155; color: white; font-size: 0.9rem; padding: 8px; border-radius: 6px; margin-top: 5px;">
+        </div>
+      </div>
+      <div style="display:flex; gap:20px">
+        <div style="flex:1">
+          <label>Gravidade</label>
+          <select id="selGrav"><option value="OBSERVACAO">🟢 Observação</option><option value="ALERTA">🟡 Alerta</option><option value="CRITICO">🔴 CRÍTICO</option></select>
+        </div>
+        <div style="flex:1">
+          <label>Motivo</label>
+          <select id="selMot">
+    <option value="ACIDENTE">🚗 Acidente de Trânsito</option>
+    <option value="OBSTRUCAO">🚧 Obstrução de Via</option>
+    <option value="ESTACIONAMENTO">🚫 Estacionamento Irregular</option>
+    <option value="SEMAFORO">🚦 Semáforo com Defeito</option>
+    <option value="BLITZ">🛑 Blitz / Bloqueio</option>
+
+    <option value="CRIME">🔫 Assalto / Roubo</option>
+    <option value="FURTO">🧲 Furto</option>
+    <option value="TRAFICO">💊 Tráfico de Drogas</option>
+    <option value="SUSPEITO">👤 Indivíduo Suspeito</option>
+    <option value="VEICULO_SUSPEITO">🚓 Veículo Suspeito/Clonado</option>
+    <option value="VIOLENCIA_DOMESTICA">🏠 Violência Doméstica</option>
+    <option value="BRIGA">👊 Rixa / Briga</option>
+    <option value="VANDALISMO">🎨 Vandalismo / Pichação</option>
+    <option value="DANO">🔨 Dano ao Patrimônio</option>
+
+    <option value="PERTURBACAO">🔊 Perturbação do Sossego</option>
+    <option value="AGLOMERACAO">👥 Aglomeração</option>
+    <option value="MANIFESTACAO">📢 Manifestação / Protesto</option>
+    <option value="MORADOR_RUA">⛺ Apoio População de Rua</option>
+    <option value="ANIMAIS">🐕 Animal Solto / Perigoso</option>
+
+    <option value="INCENDIO">🔥 Incêndio</option>
+    <option value="ALAGAMENTO">🌊 Alagamento / Enchente</option>
+    <option value="ARVORE">🌳 Queda de Árvore</option>
+    <option value="APOIO_SAMU">🚑 Apoio ao SAMU</option>
+    <option value="EVENTO">🎉 Evento Público</option>
+    <option value="POLICIAMENTO">👮 Policiamento Preventivo</option>
+    <option value="OUTROS">❓ Outros</option>
+</select>
+        </div>
+      </div>
+      <div>
+        <label>Primeira Ação</label>
+        <select id="selAcao">
+            <option value="MONITORAMENTO">Apenas Monitoramento</option>
+            <option value="GCM_ACIONADA">Guarda Civil Municipal (GCM)</option>
+            <option value="PM_ACIONADA">Polícia Militar Acionada</option>
+            <option value="BOMBEIROS_SAMU">Bombeiros / SAMU</option>
+            <option value="TRANSITO">Agentes de Trânsito</option>
+        </select>
+      </div>
+      <div>
+        <label>Detalhes</label>
+        <div style="display:flex; gap:10px"><textarea id="txtObs" placeholder="Descreva os detalhes..." style="flex:1"></textarea><button class="mic-btn" onclick="startDictation('txtObs', this)"><i class="fa-solid fa-microphone"></i></button></div>
+      </div>
+      <div>
+        <label>Evidência (Foto)</label>
+        <input type="file" id="fileImg" accept="image/*">
+        <p id="editFileNote" style="display:none; color:var(--warn); font-size:0.8rem">Deixe vazio para manter a foto atual.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="fecharModal()" class="btn btn-dark" style="flex:1">Cancelar</button>
+      <button onclick="salvarOcorrencia()" id="btnSave" class="btn btn-primary" style="flex:1">CONFIRMAR</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalEncerrar" class="modal">
+  <div class="modal-box" style="border-top: 5px solid var(--success)">
+    <div class="modal-header" style="background:#064e3b"><div class="modal-title"><i class="fa-solid fa-check-circle"></i> Desfecho</div><button onclick="fecharModalEncerrar()" style="background:transparent; border:none; color:#fff; font-size:1.5rem; cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <p style="color:#cbd5e1; font-size:0.95rem; margin:0">Informe o resultado final da operação.</p>
+      <div><label>Tipo de Resolução</label><select id="resTipo"><option value="RESOLVIDO_LOCAL">Resolvido no Local</option><option value="ENCAMINHADO_DP">Encaminhado à Delegacia</option><option value="ALARME_FALSO">Alarme Falso / Sem Alteração</option><option value="EVADIU">Suspeito Evadiu-se</option><option value="LIBERADO">Liberado / Orientado</option></select></div>
+      <div><label>Relatório Final</label><div style="display:flex; gap:10px"><textarea id="resObs" placeholder="Relatório de encerramento..." style="height:120px; flex:1"></textarea><button class="mic-btn" onclick="startDictation('resObs', this)"><i class="fa-solid fa-microphone"></i></button></div></div>
+      <div style="margin-top:10px"><label>Evidência Final (Foto do Fechamento)</label><input type="file" id="fileImgFim" accept="image/*"></div>
+      <input type="hidden" id="idEncerrar">
+    </div>
+    <div class="modal-footer">
+      <button onclick="fecharModalEncerrar()" class="btn btn-dark" style="flex:1">Voltar</button>
+      <button onclick="confirmarEncerramento()" class="btn btn-success" style="background:var(--success); flex:1">FINALIZAR</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalUsers" class="modal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-title"><i class="fa-solid fa-users-gear"></i> Gestão de Usuários</div><button onclick="fecharModalUsers()" style="background:transparent; border:none; color:#fff; font-size:1.5rem; cursor:pointer">×</button></div>
+    <div class="modal-body">
+        <div style="background:#020617; padding:15px; border-radius:8px; border:1px solid var(--border)">
+            <h4 style="margin:0 0 10px 0; color:var(--primary)">Novo Usuário</h4>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+                <input id="new_user" placeholder="Usuário" style="flex:1">
+                <input id="new_pass" type="password" placeholder="Senha" style="flex:1">
+                <select id="new_role" style="flex:1"><option value="user">Operador</option><option value="admin">Administrador</option></select>
+                <button class="btn btn-primary" onclick="criarUsuario()">Criar</button>
+            </div>
+        </div>
+        <table class="user-table"><thead><tr><th>ID</th><th>Usuário</th><th>Perfil</th><th>Ação</th></tr></thead><tbody id="userListBody"></tbody></table>
+        <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
+            <h4 style="margin:0 0 10px 0; color:var(--warn)">Manutenção do Sistema</h4>
+            <button class="btn btn-dark" style="border-color:var(--warn); color:var(--warn)" onclick="limparAntigas()"><i class="fa-solid fa-broom"></i> Limpar Ocorrências Antigas</button>
+        </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalSobre" class="modal">
+    <div class="modal-box" style="width:500px">
+        <div class="modal-header">
+            <div>Sobre o Sistema</div>
+            <button onclick="document.getElementById('modalSobre').style.display='none'" style="background:transparent; border:none; color:white; font-size:1.5rem; cursor:pointer">×</button>
+        </div>
+        <div class="modal-body" style="text-align:center;">
+             <i class="fa-solid fa-shield-halved fa-4x" style="color:var(--primary); margin-bottom:15px"></i>
+             <h2 style="margin:0">SICOP V17.30</h2>
+             <p style="color:#888; font-size:0.9rem">SISTEMA INTEGRADO DE OPERAÇÕES</p>
+             <div class="credits-box">
+                <p><strong>🏛️ Instituição:</strong> Guarda Municipal de Belo Horizonte</p>
+                <p><strong>📍 Unidade:</strong> COP - Centro de Operações</p>
+                <p><strong>💻 Desenvolvimento:</strong> GCD II Augusto Emiliano</p>
+             </div>
+             <p style="font-size:0.8rem; color:#555">© 2025 - GMBH. Todos os direitos reservados.</p>
+        </div>
+        <div class="modal-footer">
+            <button onclick="document.getElementById('modalSobre').style.display='none'" class="btn btn-primary" style="width:100%">Fechar</button>
+        </div>
+    </div>
+</div>
+<script>
+const SUPABASE_URL = 'https://qblynyrsbpuzwmmgyoso.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFibHlueXJzYnB1endtbWd5b3NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1OTA3OTcsImV4cCI6MjA4MjE2Njc5N30.xOzPmI-CsZKYj65dSnUJz2XC_l2W1R_LyWkQm8mxwkY';
+const supabase = libSupabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// --- CAMADA DE PROTEÇÃO SICOP V17.30 ---
+
+// 1. Bloqueia Botão Direito (Menu de Contexto)
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// 2. Bloqueia Atalhos de Inspeção e Fonte
+document.onkeydown = function(e) {
+    // Bloqueia F12
+    if(e.keyCode == 123) return false;
+
+    // Bloqueia Ctrl+Shift+I (Inspecionar Elemento)
+    if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
+
+    // Bloqueia Ctrl+Shift+J (Console)
+    if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
+
+    // Bloqueia Ctrl+Shift+C (Selecionar elemento)
+    if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false;
+
+    // Bloqueia Ctrl+U (Ver código fonte)
+    if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+
+    // Bloqueia Ctrl+S (Salvar página)
+    if(e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) return false;
+};
+
+// 3. Armadilha Anti-Debugger (Trava o console se for aberto por outros meios)
+setInterval(function() {
+    (function() {
+        return false;
+    }
+    ['constructor']('debugger')
+    ['call']());
+}, 200);
+
+console.log("%c SICOP: Acesso restrito a pessoal autorizado.", "color: red; font-size: 20px; font-weight: bold;");
+
+// ============================================================
+// SISTEMA DE SEGURANÇA SICOP - PERFIL OPERADOR
+// ============================================================
+function aplicarTravaOperador() {
+    const perfil = localStorage.getItem('sicop_perfil') || 'user';
+    
+    if (perfil === 'user') {
+        console.log("🔒 SICOP: MODO OPERADOR ATIVADO - Restrições de Segurança Aplicadas.");
+        
+        // CSS INJETADO DINAMICAMENTE
+        const cssTrava = document.createElement("style");
+        cssTrava.innerHTML = `
+            .btn-excluir, [onclick*="excluir"], [title*="Excluir"], .fa-trash, .fa-trash-can,
+            .fa-cog, .fa-gear, [title*="Config"], #btnConfig, 
+            .fa-database, [title*="Backup"], [title*="Restaurar"], [title*="Limpar"], #btnLimparBanco,
+            #btnAdmin, .admin-only { 
+                display: none !important; 
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+        `;
+        document.head.appendChild(cssTrava);
+
+        // BLOQUEIO LÓGICO DAS FUNÇÕES
+        const acessoNegado = () => {
+            alert("⛔ ACESSO NEGADO: Seu perfil de OPERADOR não permite esta ação de Administrador.");
+            return false;
+        };
+        window.excluirOcorrencia = acessoNegado;
+        window.limparBanco = acessoNegado;       
+        window.restaurarBackup = acessoNegado;  
+        window.configurarSistema = acessoNegado;
+        window.abrirModalUsers = acessoNegado;
+
+        // MONITORAMENTO
+        setInterval(() => {
+            const btnSave = document.getElementById('btnSave');
+            const modalTitle = document.getElementById('modalTitle');
+            if (btnSave && modalTitle) {
+                const titulo = modalTitle.innerText.toLowerCase();
+                if (titulo.includes('excluir') || titulo.includes('limpar') || titulo.includes('admin')) {
+                    btnSave.disabled = true;
+                    btnSave.style.display = 'none';
+                }
+            }
+        }, 1000);
+    } else {
+        console.log("🔓 SICOP: MODO ADMINISTRADOR - Acesso Total.");
+    }
+}
+
+function aplicarHierarquia() {
+    if (!CURRENT_USER) return;
+    const perfil = CURRENT_USER.role.toLowerCase();
+    
+    localStorage.setItem('sicop_perfil', perfil);
+
+    const btnAdmin = document.getElementById('btnAdmin');
+    const btnDash = document.querySelector('[onclick="mudarTab(\'dash\')"]');
+    const btnImportar = document.querySelector('label[title="Importar JSON"]');
+    const btnReset = document.querySelector('[onclick="resetarSistema()"]');
+
+    if (perfil === 'user') { // OPERADOR
+        if(btnAdmin) btnAdmin.classList.add('restrito');
+        if(btnDash) btnDash.classList.add('restrito');
+        if(btnImportar) btnImportar.classList.add('restrito');
+        if(btnReset) btnReset.classList.add('restrito');
+    } 
+    else if (perfil === 'supervisor') { // SUPERVISOR
+        if(btnAdmin) btnAdmin.classList.add('restrito');
+    }
+}
+
+function finalizarLogin() {
+    document.getElementById('login').style.display = 'none'; 
+    document.getElementById('app').style.display = 'flex';
+    
+    const nomeDisplay = CURRENT_USER.nome ? CURRENT_USER.nome : CURRENT_USER.user;
+    const orgaoDisplay = CURRENT_USER.orgao ? CURRENT_USER.orgao : 'GMBH';
+    
+    document.getElementById('displayUser').innerHTML = `
+        <span style="font-size:0.8rem; color:#aaa">${orgaoDisplay}</span> 
+        <strong>${nomeDisplay}</strong>
+    `;
+
+    aplicarHierarquia();
+    aplicarTravaOperador();
+    iniciarSentinela(); 
+    iniciarApp();
+}
+
+async function entrar() {
+    let u = document.getElementById('u').value.trim().toUpperCase();
+    const p = document.getElementById('p').value;
+    const loader = document.getElementById('loader');
+    const loginForm = document.getElementById('loginForm');
+
+    if (!u || !p) return alert("Por favor, preencha usuário e senha.");
+
+    // Mostra o radar de carregamento
+    loginForm.style.display = 'none';
+    loader.style.display = 'flex';
+
+    try {
+        // CONSULTA O SUPABASE (Nuvem)
+        const { data: usuario, error } = await supabase
+            .from('usuarios_global')
+            .select('*')
+            .eq('user', u)
+            .eq('pass', p)
+            .single(); // Esperamos apenas um usuário
+
+        if (error || !usuario) {
+            alert("Credenciais Inválidas ou Usuário não cadastrado.");
+            loader.style.display = 'none';
+            loginForm.style.display = 'block';
+            return;
+        }
+
+        if (usuario.status === 'INATIVO') {
+            alert("⛔ ACESSO BLOQUEADO: Usuário inativado pelo Administrador.");
+            location.reload();
+            return;
+        }
+
+        // Se chegou aqui, login deu certo!
+        CURRENT_USER = usuario;
+        localStorage.setItem('sicop_perfil', usuario.role);
+        
+        // Finaliza o login e abre o sistema
+        finalizarLogin();
+        console.log(`✅ Login realizado: ${usuario.nome} (${usuario.role})`);
+
+    } catch (err) {
+        console.error("Erro no login:", err);
+        alert("Erro de conexão com o servidor do COP.");
+        loader.style.display = 'none';
+        loginForm.style.display = 'block';
+    }
+}
+
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+const imgDB = new Dexie("Sicop_Fix_V26");
+imgDB.version(1).stores({ files: "id, blob" });
+
+let db = null; let map = null; let markers = null; let heatLayer = null; let assetsLayer = null; let pulseLayer = null;
+let activeRadius = null; let isRadiusToolActive = false; let isHeatmapOn = false;
+let CAMERAS = []; let OCORRENCIAS = []; let LOGS_PLANTAO = []; let STATUS_CAMERAS = {}; // NOVA: Status das Câmeras
+let charts = {};
+let CURRENT_USER = null; let EDITING_ID = null;
+
+function togglePass() { const p=document.getElementById('p'); const i=document.querySelector('.toggle-pass'); if(p.type==='password'){p.type='text';i.classList.remove('fa-eye');i.classList.add('fa-eye-slash')}else{p.type='password';i.classList.remove('fa-eye-slash');i.classList.add('fa-eye')} }
+function abrirImagemFull(src) { if(!src)return; document.getElementById('fullImageElement').src=src; document.getElementById('modalImgFull').style.display='flex'; }
+function toggleFilter() { const el=document.getElementById('filterContainer'); el.style.display=el.style.display==='block'?'none':'block'; }
+function buscarCamSidebar(val) { const items=document.querySelectorAll('.feed-card'); items.forEach(item => { item.style.display=item.innerText.toLowerCase().includes(val.toLowerCase())?'flex':'none'; }); }
+function toggleSidebarMobile() { document.getElementById('sidebar').classList.toggle('mobile-open'); }
+function resetarSistema() { if(confirm("ATENÇÃO: Isso apagará TODOS os dados locais e resetará o sistema.\n\nTem certeza absoluta?")) { localStorage.clear(); imgDB.delete().then(() => { alert("Sistema resetado."); location.reload(); }); } }
+
+function startDictation(targetId, btn) {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return alert("Navegador não suporta voz.");
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR'; recognition.interimResults = false;
+    recognition.onstart = () => btn.classList.add('listening');
+    recognition.onend = () => btn.classList.remove('listening');
+    recognition.onresult = (event) => { const transcript = event.results[0][0].transcript; const input = document.getElementById(targetId); if(input) input.value = (input.value + " " + transcript).trim(); };
+    recognition.start();
+}
+
+window.onload = async () => {
+  aplicarTravaOperador();
+  
+  try {
+    // 1. Inicia o Banco Local (Apenas para cache e configurações de interface)
+    const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}` });
+    const saved = await imgDB.files.get("sqlite_db");
+    db = saved ? new SQL.Database(new Uint8Array(saved.blob)) : new SQL.Database();
+    
+    // 2. Carrega as Câmeras (KML ou LocalStorage)
+    const cams = localStorage.getItem('sicop_cams_v26');
+    CAMERAS = cams ? JSON.parse(cams) : [{nome:'CAM-TESTE-01', lat:-19.916681, lng:-43.934493, area:'1 BPM'}];
+
+    // 3. CONEXÃO REALTIME (MODO RADAR) - Fica aqui dentro!
+    supabase
+      .channel('custom-all-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ocorrencias_global' }, (payload) => {
+          console.log('📡 Mudança detectada na nuvem!', payload);
+          atualizarTudo(); // Recarrega mapa e lista para todos os tablets/PCs
+      })
+      .subscribe();
+
+    // 4. Carrega os dados iniciais da Nuvem
+    await atualizarTudo();
+
+    document.getElementById('loader').style.display='none'; 
+    document.getElementById('loginForm').style.display='block';
+
+  } catch(e) { 
+    console.error(e);
+    document.getElementById('loader').style.display='none'; 
+    document.getElementById('loginForm').style.display='block'; 
+    alert("Erro ao conectar com a rede SICOP."); 
+  }
+};
+  
+// --- NOVAS FUNÇÕES DE STATUS (V17.30) ---
+function atualizarStatusEEndereco(camName) {
+    atualizarEndAutomatico(camName);
+    const st = STATUS_CAMERAS[camName] ? STATUS_CAMERAS[camName].status : 'ONLINE';
+    document.getElementById('quickStatus').value = st;
+}
+
+function quickUpdateStatus() {
+    const cam = document.getElementById('selCam').value;
+    const novoStatus = document.getElementById('quickStatus').value;
+    if(!cam || cam === 'MANUAL') return;
+
+    db.run("INSERT OR REPLACE INTO status_cameras (nome, status, obs, data_update) VALUES (?, ?, ?, ?)", 
+    [cam, novoStatus, "Via Quick Menu", new Date().toISOString()]);
+    
+    STATUS_CAMERAS[cam] = { status: novoStatus, obs: "Via Quick Menu", data: new Date().toISOString() };
+    persistir();
+    
+    alert(`Status de ${cam} atualizado para: ${novoStatus}`);
+    atualizarTudo(); // Atualiza mapa e lista
+}
+
+function renderStatusTab() {
+    const div = document.getElementById('listaStatus'); div.innerHTML = '';
+    let off = 0; let manu = 0;
+
+    Object.keys(STATUS_CAMERAS).forEach(cam => {
+        const dados = STATUS_CAMERAS[cam];
+        if(dados.status === 'ONLINE') return; 
+
+        if(dados.status === 'OFFLINE') off++;
+        if(dados.status === 'MANUTENCAO') manu++;
+
+        const card = document.createElement('div');
+        card.className = `status-card ${dados.status.toLowerCase()}`;
+        card.innerHTML = `
+            <div>
+                <strong>${cam}</strong>
+                <small>${dados.status} - ${new Date(dados.data).toLocaleDateString()}</small>
+            </div>
+            <button class="btn btn-dark btn-compact" onclick="focarOcorrencia('${cam}')"><i class="fa-solid fa-crosshairs"></i></button>
+        `;
+        div.appendChild(card);
+    });
+
+    document.getElementById('st_off').innerText = off;
+    document.getElementById('st_manu').innerText = manu;
+}
+
+function abrirSobre() { document.getElementById('modalSobre').style.display='flex'; }
+
+function encerrarPlantaoZap() {
+    if(!confirm("⚠️ Deseja encerrar o plantão e enviar o relatório para o WhatsApp?\n\n(Dica: Baixe o PDF primeiro se precisar anexar)")) return;
+    const abertas = OCORRENCIAS.filter(o => o.status === 'ABERTA').length;
+    const criticas = OCORRENCIAS.filter(o => o.gravidade === 'CRITICO').length;
+    const hoje = OCORRENCIAS.filter(o => o.inicio.startsWith(new Date().toISOString().split('T')[0])).length;
+    const texto = `🚨 *RELATÓRIO DE PLANTÃO - SICOP* 🚨%0A%0A` +
+                  `👮‍♂️ *Operador:* ${CURRENT_USER ? CURRENT_USER.user : 'Anônimo'}%0A` +
+                  `📅 *Data:* ${new Date().toLocaleDateString()}%0A` +
+                  `----------------------------------%0A` +
+                  `📊 *RESUMO DO TURNO:*%0A` +
+                  `✅ Ocorrências Totais: ${hoje}%0A` +
+                  `⚠️ Pendentes: ${abertas}%0A` +
+                  `🔴 Críticas: ${criticas}%0A` +
+                  `----------------------------------%0A` +
+                  `✅ *Sistema Operacional - Status OK*`;
+    window.open(`https://wa.me/?text=${texto}`, '_blank');
+    setTimeout(() => { if(confirm("Relatório enviado!\n\nDeseja RESETAR (Sair) do sistema?")) { location.reload(); } }, 1000);
+}
+
+function exportarDadosTurno() {
+    const dados = JSON.stringify(OCORRENCIAS);
+    const blob = new Blob([dados], {type: "application/json"});
+    saveAs(blob, `SICOP_Dados_${new Date().toLocaleDateString().replace(/\//g,'-')}.json`);
+    alert("Arquivo JSON gerado! Envie para o supervisor para análise unificada.");
+}
+
+function exportarCSV() {
+    let csv = "ID,Data,Camera,Endereco,Motivo,Gravidade,Status,Obs\n";
+    OCORRENCIAS.forEach(o => {
+        const obsLimpa = o.obs ? o.obs.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""') : "";
+        csv += `${o.id},"${o.inicio}","${o.camera}","${o.endereco||''}","${o.motivo}","${o.gravidade}","${o.status}","${obsLimpa}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `SICOP_Relatorio_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`);
+}
+
+async function fazerBackup() {
+    if (!confirm("Deseja exportar o Backup Tático Completo (Banco de Dados + Fotos das Ocorrências + Status)?")) return;
+    const z = new JSZip();
+    try {
+        const data = db.export();
+        z.file("sicop_database.sqlite", data);
+        
+        // Salva Status Separado também
+        const statusExport = JSON.stringify(STATUS_CAMERAS, null, 2);
+        z.file("relatorio_status_cameras.json", statusExport);
+
+        const fotos = await imgDB.files.toArray();
+        const pastaMidia = z.folder("midia");
+        fotos.forEach(item => {
+            if (item.id !== 'sqlite_db') { 
+                pastaMidia.file(item.id, item.blob);
+            }
+        });
+        z.generateAsync({type:"blob"}).then(function(content) {
+            const dataHora = new Date().toLocaleDateString().replace(/\//g, '-');
+            saveAs(content, `SICOP_BACKUP_GMBH_${dataHora}.zip`);
+            alert("✅ ARQUIVO ZIP GERADO!\n\nEste arquivo contém todas as ocorrências e fotos. Guarde-o em local seguro ou pen drive.");
+        });
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao exportar backup: " + e);
+    }
+}
+
+async function restaurarBackup(input) {
+    try {
+        const z = await new JSZip().loadAsync(input.files[0]);
+        const arquivoZip = z.file("sicop_database.sqlite");
+        
+        if (!arquivoZip) {
+            alert("Erro: Arquivo de banco de dados não encontrado dentro do ZIP.");
+            return;
+        }
+
+        const sqlFile = await arquivoZip.async("uint8array");
+        db = new SQL.Database(sqlFile);
+        await persistir(); 
+        
+        const pastaMidia = z.folder("midia");
+        const promessas = [];
+        
+        if(pastaMidia) {
+            pastaMidia.forEach((caminho, arquivo) => {
+                promessas.push(arquivo.async("blob").then(blob => {
+                    return imgDB.files.put({ id: arquivo.name.replace("midia/", ""), blob: blob });
+                }));
+            });
+        }
+
+        await Promise.all(promessas);
+        alert("✅ BACKUP ZIP RESTAURADO COM SUCESSO!");
+        location.reload(); 
+    } catch (e) {
+        alert("Erro ao restaurar ZIP: " + e.message);
+        console.error(e);
+    }
+}
+
+async function importarDadosTurno(input) {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const dados = JSON.parse(e.target.result);
+            if (!Array.isArray(dados) || dados.length === 0) return;
+
+            const amostra = dados[0];
+
+            if (amostra.user || (Array.isArray(amostra) && amostra.length >= 3)) {
+                if (!confirm(`DETECTADO: Backup de ${dados.length} usuários. Sincronizar?`)) return;
+                try { db.run("ROLLBACK;"); } catch(err) {}
+                db.run("BEGIN TRANSACTION;");
+                dados.forEach(u => {
+                    let login = u.user || (Array.isArray(u) ? u[1] : null);
+                    let senha = u.pass || (Array.isArray(u) ? u[2] : null);
+                    let cargo = u.role || (Array.isArray(u) ? u[3] : 'user');
+                    let nome  = u.nome || (Array.isArray(u) ? u[4] : '---');
+
+                    if (login && senha) {
+                        db.run("DELETE FROM usuarios WHERE user = ?", [login]);
+                        db.run("INSERT INTO usuarios (user, pass, role, nome) VALUES (?, ?, ?, ?)", 
+                        [login, senha, cargo, nome]);
+                    }
+                });
+                db.run("COMMIT;");
+                setTimeout(async () => {
+                    try {
+                        const binaryDb = db.export();
+                        await imgDB.files.put({ id: "sqlite_db", blob: binaryDb });
+                        alert("✅ CREDENCIAIS SINCRONIZADAS COM SUCESSO!");
+                        location.reload();
+                    } catch (persistErr) {
+                        console.error("Erro na persistência:", persistErr);
+                        alert("ERRO DE GRAVAÇÃO: O navegador bloqueou o arquivo. Tente fechar e abrir a página novamente.");
+                    }
+                }, 300); 
+
+            } else if (amostra.motivo || amostra.camera) {
+                OCORRENCIAS = [...OCORRENCIAS, ...dados];
+                renderFeed();
+                renderMap();
+                renderListaCompleta();
+                alert(`✅ IMPORTADO: ${dados.length} ocorrências.`);
+            }
+        } catch(err) { 
+            console.error("Erro geral:", err);
+            alert("ERRO CRÍTICO: Verifique se não há mais de uma aba do SICOP aberta."); 
+        }
+    };
+    reader.readAsText(input.files[0]);
+}
+
+function iniciarSentinela() {
+    console.log("🛡️ Sentinela: Monitorando sinais de atualização...");
+    let lastSyncId = localStorage.getItem('sicop_sync_id');
+
+    setInterval(() => {
+        const currentSyncId = localStorage.getItem('sicop_sync_id');
+        if (currentSyncId && currentSyncId !== lastSyncId) {
+            console.warn("🔄 ATUALIZAÇÃO DETECTADA! Recarregando sistema...");
+            alert("⚠️ ATENÇÃO: O Administrador atualizou as permissões do sistema.\n\nA página será atualizada para aplicar as mudanças.");
+            location.reload();
+        }
+    }, 2000); 
+}
+
+function sair(pedirBackup = true) { 
+    if(pedirBackup && confirm("Deseja baixar backup antes de sair?")) fazerBackup(); 
+    localStorage.removeItem('sicop_user'); 
+    localStorage.removeItem('sicop_perfil'); 
+    location.reload(); 
+}
+
+function iniciarApp() { initMap(); atualizarTudo(); atualizarSelectAreas(); getWeather(); setInterval(getWeather, 600000); }
+async function persistir() { const data = db.export(); await imgDB.files.put({ id: "sqlite_db", blob: data }); }
+
+async function getWeather() {
+    try {
+        const lat = CAMERAS.length ? CAMERAS[0].lat : -19.92; const lng = CAMERAS.length ? CAMERAS[0].lng : -43.94;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+        const data = await res.json();
+        document.getElementById('w-temp').innerText = `${data.current_weather.temperature}°C`;
+    } catch(e) {}
+}
+
+function renderMap() {
+  markers.clearLayers(); pulseLayer.clearLayers(); if(isHeatmapOn) return; 
+  const filtroArea = document.getElementById('filtroArea').value;
+
+  CAMERAS.forEach(c => {
+    if (filtroArea !== 'TODOS' && c.area !== filtroArea) return;
+    
+    // VERIFICAÇÃO DE STATUS
+    const st = STATUS_CAMERAS[c.nome] || { status: 'ONLINE' };
+    
+    const oc = OCORRENCIAS.find(o => o.camera === c.nome && o.status === 'ABERTA');
+    let iconHtml = '<i class="fa-solid fa-video"></i>'; 
+    let pinClass = '';
+    let pinColor = '#22c55e'; // Verde Padrão
+
+    // APLICA COR DO STATUS PRIMEIRO
+    if (st.status === 'OFFLINE') { pinColor = '#dc2626'; pinClass = 'pin-offline'; }
+    if (st.status === 'MANUTENCAO') { pinColor = '#eab308'; pinClass = 'pin-manutencao'; }
+    
+    // SE TEM OCORRÊNCIA, A COR MUDA (Prioridade)
+    if (oc) {
+      let color = '#10b981';
+      if (oc.gravidade === 'ALERTA') color = '#f59e0b';
+      if (oc.gravidade === 'CRITICO') color = '#ef4444';
+      
+      pinClass = oc.gravidade === 'CRITICO' ? 'pin-critico' : (oc.gravidade === 'ALERTA' ? 'pin-alerta' : 'pin-obs');
+      // Reseta cor de fundo se for pino de ocorrência padrão
+      pinColor = color; 
+      
+      const icons = { 
+          'ACIDENTE': 'car-burst', 
+          'OBSTRUCAO': 'road-barrier', 
+          'ESTACIONAMENTO': 'ban',
+          'SEMAFORO': 'traffic-light',
+          'BLITZ': 'hand-paper',
+          'CRIME': 'gun', 
+          'FURTO': 'mask',
+          'TRAFICO': 'capsules',
+          'SUSPEITO': 'user-secret',
+          'VEICULO_SUSPEITO': 'car-side',
+          'VIOLENCIA_DOMESTICA': 'house-crack',
+          'BRIGA': 'hand-fist',
+          'VANDALISMO': 'spray-can',
+          'DANO': 'hammer',
+          'PERTURBACAO': 'volume-high',
+          'AGLOMERACAO': 'people-group',
+          'MANIFESTACAO': 'bullhorn',
+          'MORADOR_RUA': 'tents',
+          'ANIMAIS': 'dog',
+          'INCENDIO': 'fire', 
+          'ALAGAMENTO': 'water', 
+          'ARVORE': 'tree',
+          'APOIO_SAMU': 'truck-medical',
+          'EVENTO': 'calendar-check',
+          'POLICIAMENTO': 'user-shield' 
+      };
+
+      if(icons[oc.motivo]) iconHtml = `<i class="fa-solid fa-${icons[oc.motivo]}"></i>`;
+      else iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      
+      const pulseIcon = L.divIcon({ className: 'pulse-animation-icon', html: `<div class="pulse-circle" style="color:${color}; border-color:${color}; background:${color}"></div>`, iconSize: [60, 60], iconAnchor: [30, 50] });
+      L.marker([c.lat, c.lng], {icon: pulseIcon}).addTo(pulseLayer);
+    }
+    
+    // Se não tem ocorrência e está Offline/Manutenção, ajusta ícone
+    if (!oc && st.status !== 'ONLINE') {
+        // Usa cor do status
+    } else if (oc) {
+        // Já definiu cor da ocorrência
+    } else {
+        // Online Padrão (#3b82f6 no CSS original ou verde se preferir)
+        pinColor = '#3b82f6'; 
+    }
+    
+    // Override de cor inline para suportar status novos
+    const styleOverride = (st.status !== 'ONLINE' && !oc) ? `style="background:${st.status === 'OFFLINE' ? '#dc2626' : '#eab308'}"` : '';
+
+    const m = L.marker([c.lat, c.lng], { icon: L.divIcon({ className: 'custom-div-icon', html: `<div class="marker-pin ${pinClass}" ${styleOverride}>${iconHtml}</div>`, iconSize: [40, 42], iconAnchor: [20, 42], popupAnchor: [0, -35] }) });
+    m.cameraNome = c.nome;
+
+    let popup = `<b>${c.nome}</b><br>${c.area || ''}`;
+    // Adiciona Info de Status no Popup
+    if(st.status !== 'ONLINE') {
+        popup += `<br><span style="color:${st.status==='OFFLINE'?'red':'orange'}">⚠️ ${st.status}</span>`;
+    }
+
+    if(oc) { popup += `<hr><b style="color:${pinClass === 'pin-critico' ? 'red' : 'orange'}">${oc.motivo}</b><br>${oc.acao}<br><button onclick="editarOcorrencia(${oc.id})" class="btn-edit" style="width:100%;margin-top:5px">Editar</button>`; }
+    else { popup += `<br><button onclick="abrirModal('${c.nome}')" class="btn btn-primary" style="margin-top:5px;width:100%">Abrir / Status</button>`; }
+    
+    m.bindPopup(popup); 
+    markers.addLayer(m);
+  });
+
+  const manuais = OCORRENCIAS.filter(o => o.area === 'MANUAL' && o.status === 'ABERTA');
+  manuais.forEach(o => {
+      if(o.lat && o.lng) {
+          const iconHtml = '<i class="fa-solid fa-location-dot"></i>';
+          const pinClass = o.gravidade === 'CRITICO' ? 'pin-critico' : (o.gravidade === 'ALERTA' ? 'pin-alerta' : 'pin-obs');
+
+          let color = '#10b981';
+          if (o.gravidade === 'ALERTA') color = '#f59e0b';
+          if (o.gravidade === 'CRITICO') color = '#ef4444';
+
+          const pulseIcon = L.divIcon({ className: 'pulse-animation-icon', html: `<div class="pulse-circle" style="color:${color}; border-color:${color}; background:${color}"></div>`, iconSize: [60, 60], iconAnchor: [30, 50] });
+          L.marker([o.lat, o.lng], {icon: pulseIcon}).addTo(pulseLayer);
+
+          const m = L.marker([o.lat, o.lng], { 
+              icon: L.divIcon({ className: 'custom-div-icon', html: `<div class="marker-pin ${pinClass}">${iconHtml}</div>`, iconSize: [40, 42], iconAnchor: [20, 42], popupAnchor: [0, -35] }) 
+          });
+          m.cameraNome = o.camera;
+          m.bindPopup(`<b>📍 ${o.endereco || 'Local Manual'}</b><hr><b>${o.motivo}</b><br>${o.obs}<br><button onclick="editarOcorrencia(${o.id})" class="btn-edit" style="width:100%;margin-top:5px">Editar</button>`);
+          markers.addLayer(m);
+      }
+  });
+}
+
+function toggleHeatmap() { isHeatmapOn = !isHeatmapOn; const btn = document.getElementById('btnHeat'); if (isHeatmapOn) { btn.classList.add('active'); markers.clearLayers(); pulseLayer.clearLayers(); const points = OCORRENCIAS.map(o => { const c = CAMERAS.find(cam => cam.nome === o.camera); return c ? [c.lat, c.lng, 1.0] : null; }).filter(p => p); if(points.length) heatLayer = L.heatLayer(points, {radius: 25, blur: 15}).addTo(map); } else { btn.classList.remove('active'); if (heatLayer) map.removeLayer(heatLayer); renderMap(); } }
+function toggleRadiusTool() { isRadiusToolActive = !isRadiusToolActive; document.getElementById('btnRadius').classList.toggle('active'); if(!isRadiusToolActive) removerZona(); }
+
+function shareWhatsApp(id) {
+    const o = OCORRENCIAS.find(x => x.id === id); 
+    if(!o) return;
+    const dataHora = new Date(o.inicio).toLocaleString('pt-BR');
+    const lat = o.lat || 0; 
+    const lng = o.lng || 0;
+    const mapLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`; 
+const texto = 
+`🚨 *SICOP - COMUNICADO DE OCORRÊNCIA* 🚨
+----------------------------------------
+🆔 *ID:* #${o.id}
+📅 *Data:* ${dataHora}
+⚠️ *Gravidade:* ${o.gravidade}
+📂 *Natureza:* ${o.motivo}
+----------------------------------------
+📍 *LOCALIZAÇÃO:*
+📹 *Ref:* ${o.camera}
+🗺️ *Endereço:* ${o.endereco || 'Não informado'}
+🔗 *GPS:* ${mapLink}
+----------------------------------------
+📝 *DETALHES:*
+${o.obs}
+----------------------------------------
+👮 *Operador:* ${CURRENT_USER ? CURRENT_USER.user : 'COP-GMBH'}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+}
+
+async function atualizarEndAutomatico(val) {
+    const input = document.getElementById('endAutomatico');
+    input.value = "Buscando endereço...";
+    let lat, lng;
+    if(val === "MANUAL" && tempManualLocation) { lat = tempManualLocation.lat; lng = tempManualLocation.lng; }
+    else { const c = CAMERAS.find(x => x.nome === val); if(c){ lat = c.lat; lng = c.lng; } }
+
+    if(lat && lng) {
+        const end = await buscarEndereco(lat, lng);
+        input.value = end;
+    } else {
+        input.value = "";
+    }
+}
+
+function abrirModal(c, isManual = false) { 
+    EDITING_ID = null;
+    document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warn)"></i> Nova Ocorrência';
+    document.getElementById('btnSave').innerText = "CONFIRMAR";
+    document.getElementById('btnSave').disabled = false; 
+    document.getElementById('editFileNote').style.display='none';
+    document.getElementById('selGrav').value = 'OBSERVACAO'; 
+    document.getElementById('selMot').value = 'ACIDENTE'; 
+    document.getElementById('selAcao').value = 'MONITORAMENTO'; 
+    document.getElementById('txtObs').value = ''; 
+    document.getElementById('fileImg').value = '';
+    
+    // Atualiza o select de status rápido
+    atualizarStatusEEndereco(c && !isManual ? c : '');
+
+    const s = document.getElementById('selCam'); 
+    s.innerHTML=''; 
+    
+    if (isManual) {
+        const o = document.createElement('option');
+        o.value = "MANUAL"; 
+        o.innerText = "📍 " + c; 
+        o.selected = true;
+        s.appendChild(o);
+        s.disabled = true; 
+        document.getElementById('endAutomatico').value = c; 
+    } else {
+        tempManualLocation = null;
+        s.disabled = false;
+        CAMERAS.forEach(cam => { 
+            const o=document.createElement('option'); 
+            o.value=cam.nome; 
+            o.innerText=cam.nome; 
+            if(cam.nome===c) o.selected=true; 
+            s.appendChild(o); 
+        }); 
+        atualizarEndAutomatico(c); 
+    }
+    document.getElementById('modal').style.display='flex'; 
+}
+
+function verStreetView() {
+    let lat, lng;
+    const selCam = document.getElementById('selCam');
+    
+    if(selCam.value === "MANUAL" && tempManualLocation) {
+        lat = tempManualLocation.lat;
+        lng = tempManualLocation.lng;
+    } else {
+        const cam = CAMERAS.find(c => c.nome === selCam.value);
+        if(cam) { lat = cam.lat; lng = cam.lng; }
+    }
+    if(lat && lng) {
+        window.open(`https://www.google.com/maps?q&layer=c&cbll=${lat},${lng}`, '_blank');
+    } else {
+        alert("Selecione uma câmera ou local manual primeiro.");
+    }
+}
+
+function focarOcorrencia(nome) {
+    let targetLayer = null;
+    markers.eachLayer(function(layer) {
+        if (layer.cameraNome === nome) {
+            targetLayer = layer;
+        }
+    });
+
+    if (targetLayer) {
+        mudarTab('mapa');
+        markers.zoomToShowLayer(targetLayer, function() {
+            targetLayer.openPopup(); 
+        });
+    } else {
+        let lat, lng;
+        const cam = CAMERAS.find(c => c.nome === nome);
+        if(cam) {
+            lat = cam.lat; lng = cam.lng;
+        } else {
+            const oc = OCORRENCIAS.find(o => o.camera === nome && o.status === 'ABERTA');
+            if(oc && oc.lat && oc.lng) {
+                lat = oc.lat; lng = oc.lng;
+            }
+        }
+        if(lat && lng) {
+            mudarTab('mapa');
+            map.flyTo([lat, lng], 18);
+        } else {
+            alert("Localização não encontrada ou filtrada no mapa.");
+        }
+    }
+}
+
+function fecharModal() { document.getElementById('modal').style.display='none'; }
+
+aasync function salvarOcorrencia() {
+    const btnSave = document.getElementById('btnSave');
+    const file = document.getElementById('fileImg').files[0];
+    btnSave.disabled = true;
+    btnSave.innerText = "Subindo imagem e dados...";
+
+    try {
+        let publicUrl = null;
+
+        // 1. Se houver foto, faz o upload para a nuvem
+        if (file) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+            const filePath = `evidencias/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('fotos_ocorrencias')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Pega o link público da foto
+            const { data } = supabase.storage
+                .from('fotos_ocorrencias')
+                .getPublicUrl(filePath);
+            
+            publicUrl = data.publicUrl;
+        }
+
+        // 2. Prepara os dados para salvar na tabela
+        const selCam = document.getElementById('selCam');
+        const isManual = selCam.value === "MANUAL";
+        let latF = null, lngF = null;
+        
+        if (isManual && tempManualLocation) {
+            latF = tempManualLocation.lat; lngF = tempManualLocation.lng;
+        } else {
+            const c = CAMERAS.find(x => x.nome === selCam.value);
+            if (c) { latF = c.lat; lngF = c.lng; }
+        }
+
+        const dadosOcorrencia = {
+            camera: selCam.value,
+            area: isManual ? 'MANUAL' : (CAMERAS.find(c => c.nome === selCam.value)?.area || 'GERAL'),
+            gravidade: document.getElementById('selGrav').value,
+            motivo: document.getElementById('selMot').value,
+            acao: document.getElementById('selAcao').value,
+            obs: document.getElementById('txtObs').value,
+            status: 'ABERTA',
+            lat: latF,
+            lng: lngF,
+            endereco: document.getElementById('endAutomatico').value,
+            operador_id: CURRENT_USER.user,
+            img_id: publicUrl // Agora salvamos o link direto da internet!
+        };
+
+        // 3. Salva ou Atualiza no Banco Global
+        if (EDITING_ID === null) {
+            await supabase.from('ocorrencias_global').insert([dadosOcorrencia]);
+        } else {
+            await supabase.from('ocorrencias_global').update(dadosOcorrencia).eq('id', EDITING_ID);
+        }
+
+        fecharModal();
+        alert("Sincronizado com sucesso!");
+    } catch (err) {
+        alert("Erro na sincronização: " + err.message);
+    } finally {
+        btnSave.disabled = false;
+        btnSave.innerText = "CONFIRMAR";
+    }
+}
+function renderFeed() {
+    const container = document.getElementById('feedOcorrencias');
+    container.innerHTML = ''; // Limpa o feed atual
+
+    // OCORRENCIAS agora vem do Supabase (está na memória após o atualizarTudo)
+    OCORRENCIAS.forEach(o => {
+        const card = document.createElement('div');
+        card.className = `feed-card ${o.gravidade.toLowerCase()}`;
+        
+        // --- AQUI ENTRA O CÓDIGO QUE VOCÊ PERGUNTOU ---
+        let imgUrl = o.img_id; // Agora o img_id já é a URL pública do Supabase
+
+        card.innerHTML = `
+            <div class="feed-header" onclick="this.parentElement.classList.toggle('expanded')">
+                <div style="display:flex; flex-direction:column">
+                    <span style="font-weight:bold; font-size:14px;">${o.camera}</span>
+                    <span style="font-size:11px; opacity:0.8;">${o.motivo} - ${new Date(o.inicio).toLocaleString()}</span>
+                </div>
+                <i class="fa-solid fa-chevron-down"></i>
+            </div>
+            <div class="feed-details">
+                ${imgUrl ? `
+                    <div class="img-container">
+                        <img src="${imgUrl}" class="feed-img" loading="lazy">
+                        <button class="expand-btn" onclick="event.stopPropagation(); abrirImagemFull('${imgUrl}')">
+                            <i class="fa-solid fa-expand"></i>
+                        </button>
+                    </div>` : ''}
+                <div class="feed-desc">
+                    <strong>Relatório:</strong><br>
+                    ${o.obs}
+                </div>
+                <div class="feed-actions">
+                    <button onclick="zoomParaOcorrencia(${o.lat}, ${o.lng})">
+                        <i class="fa-solid fa-location-crosshairs"></i> LOCALIZAR
+                    </button>
+                    ${o.status === 'ABERTA' ? `
+                        <button class="btn-encerrar" onclick="abrirModalEncerrar(${o.id})">
+                            <i class="fa-solid fa-check"></i> ENCERRAR
+                        </button>` : `<span class="badge-encerrada">ENCERRADA</span>`}
+                </div>
+            </div>
+        `;
+        // ----------------------------------------------
+
+        container.appendChild(card);
+    });
+}
+
+async function atualizarTudo() {
+    // 1. Busca as ocorrências direto da nuvem (Supabase)
+    const { data: ocorrenciasNuvem, error } = await supabase
+        .from('ocorrencias_global')
+        .select('*')
+        .order('inicio', { ascending: false });
+
+    if (error) {
+        console.error("Erro ao sincronizar:", error);
+        return;
+    }
+
+    // 2. Atualiza a variável global que o mapa e a lista usam
+    OCORRENCIAS = ocorrenciasNuvem;
+
+    // 3. Atualiza os contadores no topo do programa
+    const abertas = OCORRENCIAS.filter(o => o.status === 'ABERTA');
+    const hoje = OCORRENCIAS.filter(o => o.inicio && o.inicio.startsWith(new Date().toISOString().split('T')[0]));
+    
+    document.getElementById('k_abertas').innerText = abertas.length;
+    document.getElementById('k_hoje').innerText = hoje.length;
+
+    // 4. Manda o programa desenhar tudo na tela
+    renderFeed(); 
+    renderMap(); 
+    renderListaCompleta(); 
+    renderStatusTab();
+    
+    if (document.getElementById('tab-dash').style.display === 'flex') atualizarGraficos();
+}
+
+function abrirImagemFull(src) {
+    if (!src) return;
+    const modalImg = document.getElementById('modalImgFull');
+    const imgElement = document.getElementById('fullImageElement');
+    
+    if (modalImg && imgElement) {
+        imgElement.src = src;
+        modalImg.style.display = 'flex';
+    } else {
+        // Caso os IDs no seu HTML sejam um pouco diferentes:
+        console.error("Elementos do modal de imagem não encontrados.");
+    }
+}
+
+function abrirModalUsers() { document.getElementById('modalUsers').style.display='flex'; renderUsers(); }
+function fecharModalUsers() { document.getElementById('modalUsers').style.display='none'; }
+function renderUsers() {
+    const tbody = document.getElementById('userListBody'); tbody.innerHTML = '';
+    const res = db.exec("SELECT id, user, role FROM usuarios");
+    if(res.length) { res[0].values.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${row[0]}</td><td>${row[1]}</td><td><span style="color:${row[2]==='admin'?'var(--accent)':'#ccc'}">${row[2]}</span></td><td><button onclick="delUser(${row[0]})" style="color:red;background:transparent;border:none;cursor:pointer"><i class="fa-solid fa-trash"></i></button></td>`; tbody.appendChild(tr); }); }
+}
+function criarUsuario() {
+    const u = document.getElementById('new_user').value; const p = document.getElementById('new_pass').value; const r = document.getElementById('new_role').value;
+    if(!u || !p) return alert("Preencha tudo");
+    try { db.run("INSERT INTO usuarios (user, pass, role) VALUES (?, ?, ?)", [u, p, r]); persistir(); renderUsers(); document.getElementById('new_user').value = ''; document.getElementById('new_pass').value = ''; } catch(e) { alert("Erro (usuário já existe?)"); }
+}
+function delUser(id) { if(id===1) return alert("Não pode deletar Admin"); if(confirm("Excluir usuário?")) { db.run("DELETE FROM usuarios WHERE id = ?", [id]); persistir(); renderUsers(); } }
+
+function addAsset(type) {
+  const prefixo = prompt(`Digite o Prefixo da ${type === 'PM' ? 'Viatura' : 'Unidade'}:`);
+  if(!prefixo) return;
+  const center = map.getCenter();
+  let iconHtml = ''; let cssClass = '';
+  if (type === 'PM') { iconHtml = '<i class="fa-solid fa-car-side"></i>'; cssClass = 'asset-pm'; } 
+  else { iconHtml = '<i class="fa-solid fa-truck-medical"></i>'; cssClass = 'asset-bm'; }
+  const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class="asset-marker ${cssClass}" style="width:30px;height:30px">${iconHtml}</div>`, iconSize: [30, 30] });
+  const m = L.marker(center, { icon: icon, draggable: true }).addTo(assetsLayer);
+  const assetId = L.stamp(m); 
+  const div = document.createElement('div');
+  div.innerHTML = `<b>${prefixo}</b><br><small>${type}</small><br><button onclick="removeSpecificAsset(${assetId})" style="background:#ef4444;color:white;border:none;width:100%;margin-top:5px;cursor:pointer;border-radius:4px;padding:4px">REMOVER</button>`;
+  m.bindPopup(div);
+}
+window.removeSpecificAsset = (id) => { assetsLayer.eachLayer(layer => { if (L.stamp(layer) === id) { assetsLayer.removeLayer(layer); } }); };
+
+function gerarRelatorioBI() {
+    let csvContent = "\uFEFF"; 
+    csvContent += "ID;DATA_HORA;DIA;MES;ANO;HORA;TURNO;CAMERA_REF;ENDERECO_COMPLETO;BAIRRO_ESTIMADO;NATUREZA;GRAVIDADE;STATUS;OPERADOR;TEMPO_RESPOSTA_MIN;RESOLUCAO\n";
+
+    OCORRENCIAS.forEach(o => {
+        const d = new Date(o.inicio);
+        const dia = d.getDate();
+        const mes = d.getMonth() + 1;
+        const ano = d.getFullYear();
+        const hora = d.getHours();
+        
+        let turno = "MADRUGADA";
+        if (hora >= 6 && hora < 12) turno = "MANHA";
+        else if (hora >= 12 && hora < 18) turno = "TARDE";
+        else if (hora >= 18) turno = "NOITE";
+
+        const endLimpo = (o.endereco || "").replace(/;/g, ",").replace(/(\r\n|\n|\r)/gm, " ");
+        let bairro = "GERAL";
+        if(endLimpo.includes("-")) {
+            const partes = endLimpo.split("-");
+            if(partes.length > 1) bairro = partes[1].trim();
+        }
+
+        let tempoResp = "";
+        if(o.fim) {
+            const diff = new Date(o.fim) - d;
+            tempoResp = Math.floor(diff / 60000); 
+        }
+
+        csvContent += `${o.id};${o.inicio};${dia};${mes};${ano};${hora};${turno};${o.camera};${endLimpo};${bairro};${o.motivo};${o.gravidade};${o.status};${CURRENT_USER ? CURRENT_USER.user : 'SYSTEM'};${tempoResp};${o.resolucao || 'EM ANDAMENTO'}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `DADOS_BI_GMBH_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`);
+    alert("📊 DADOS DE B.I. GERADOS!\n\nEste arquivo CSV está otimizado para:\n1. Excel (Tabelas Dinâmicas)\n2. Microsoft PowerBI\n3. Google Looker Studio");
+}
+
+function exportarRelatorioExecutivo() {
+  const { jsPDF } = window.jspdf; 
+  const doc = new jsPDF('l', 'mm', 'a4'); 
+
+  doc.setFillColor(15, 23, 42); 
+  doc.rect(0, 0, 297, 30, 'F'); 
+  doc.setTextColor(255, 255, 255); 
+  doc.setFontSize(18); 
+  doc.text("REGISTRO GLOBAL DE OCORRÊNCIAS - GMBH", 14, 15); 
+  
+  doc.setFontSize(10); 
+  doc.setTextColor(200, 200, 200);
+  doc.text(`Extraído em: ${new Date().toLocaleString()} | Operador: ${CURRENT_USER ? CURRENT_USER.user : 'Admin'}`, 14, 25);
+
+  const rows = OCORRENCIAS.map(r => [
+      r.id, 
+      new Date(r.inicio).toLocaleString(), 
+      r.camera, 
+      r.endereco || '---', 
+      r.motivo, 
+      r.gravidade, 
+      r.status, 
+      r.resolucao || '-'
+  ]);
+
+  const columns = [
+      { header: 'ID', dataKey: 'id' },
+      { header: 'Data/Hora', dataKey: 'inicio' },
+      { header: 'Ref. Local', dataKey: 'camera' },
+      { header: 'Endereço / Logradouro', dataKey: 'endereco' },
+      { header: 'Natureza', dataKey: 'motivo' },
+      { header: 'Nível', dataKey: 'gravidade' },
+      { header: 'Status', dataKey: 'status' },
+      { header: 'Desfecho', dataKey: 'resolucao' },
+  ];
+
+  doc.autoTable({ 
+      head: [columns.map(c => c.header)], 
+      body: rows, 
+      startY: 40, 
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] }, 
+      columnStyles: { 
+          0: { cellWidth: 15 }, 
+          3: { cellWidth: 60 }, 
+          7: { cellWidth: 35 }  
+      }, 
+      styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' } 
+  });
+
+  doc.save(`Relatorio_Global_GMBH_${new Date().toLocaleDateString().replace(/\//g,'-')}.pdf`);
+}
+
+function gerarRelatorioStatusPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Cabeçalho Vermelho (Estilo Alerta)
+    doc.setFillColor(220, 38, 38); // Vermelho
+    doc.rect(0, 0, 210, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("RELATÓRIO TÉCNICO - CÂMERAS INOPERANTES", 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${new Date().toLocaleString()} | Solicitante: ${CURRENT_USER ? CURRENT_USER.user : 'Admin'}`, 14, 22);
+
+    // Filtra apenas o que NÃO está online
+    const rows = [];
+    Object.keys(STATUS_CAMERAS).forEach(cam => {
+        const dados = STATUS_CAMERAS[cam];
+        if (dados.status !== 'ONLINE') {
+            rows.push([
+                cam,
+                dados.status,
+                dados.obs || 'Sem observação',
+                new Date(dados.data).toLocaleString()
+            ]);
+        }
+    });
+
+    if (rows.length === 0) {
+        alert("Todas as câmeras estão operacionais! Nada para relatar.");
+        return;
+    }
+
+    // Gera a Tabela
+    doc.autoTable({
+        head: [['CÂMERA', 'STATUS ATUAL', 'DIAGNÓSTICO / OBS', 'REGISTRADO EM']],
+        body: rows,
+        startY: 35,
+        theme: 'grid',
+        headStyles: { fillColor: [60, 60, 60], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10 },
+        columnStyles: {
+            0: { fontStyle: 'bold' }, // Nome da Câmera em Negrito
+            1: { textColor: [200, 0, 0] } // Status em Vermelho para destacar
+        }
+    });
+
+    // Rodapé
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.text("Este documento deve ser encaminhado para a equipe de manutenção técnica.", 14, finalY);
+
+    doc.save(`Relatorio_Tecnico_Cameras_${new Date().toLocaleDateString().replace(/\//g,'-')}.pdf`);
+}
+
+function exportarRelatorioPlantao() {
+    const { jsPDF } = window.jspdf; const doc = new jsPDF();
+    doc.setFillColor(6, 78, 59); doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.text("RELATÓRIO DE LIVRO DE PLANTÃO", 14, 15);
+    doc.setFontSize(10); doc.text(`Extração de Logs - ${new Date().toLocaleString()}`, 14, 25);
+    const logsTodos = db.exec("SELECT * FROM plantao ORDER BY data DESC");
+    const dataLogs = logsTodos.length ? sqlToObj(logsTodos[0]) : [];
+    const rows = dataLogs.map(l => [new Date(l.data).toLocaleString(), l.usuario || 'Sistema', l.msg]);
+    doc.autoTable({ head: [['Data/Hora', 'Operador', 'Mensagem/Registro']], body: rows, startY: 40, headStyles: { fillColor: [16, 185, 129] }, styles: { fontSize: 9 } });
+    doc.save("Relatorio_Plantao_Logs.pdf");
+}
+
+function limparAntigas() {
+    if(!confirm("Manutenção: Apagar encerradas há mais de 7 dias?")) return;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+    db.run("DELETE FROM ocorrencias WHERE status = 'ENCERRADA' AND inicio < ?", [cutoff.toISOString()]);
+    persistir(); atualizarTudo(); alert("Limpeza concluída!");
+}
+
+function importarKML_Click() { document.getElementById('kmlFile').click(); }
+function processarKML(inp) { 
+    const r = new FileReader(); 
+    r.onload = e => { 
+        const p = new DOMParser(); 
+        const xml = p.parseFromString(e.target.result, "text/xml"); 
+        const pms = xml.getElementsByTagName("Placemark"); 
+        const novas = []; 
+        for(let i=0; i<pms.length; i++) { 
+            const pt = pms[i].getElementsByTagName("Point")[0]; 
+            if(pt) { 
+                const c = pt.getElementsByTagName("coordinates")[0].textContent.trim().split(','); 
+                const n = pms[i].getElementsByTagName("name")[0].textContent.trim(); 
+                let a = "GERAL"; 
+                const sd = pms[i].getElementsByTagName("SimpleData"); 
+                for(let j=0; j<sd.length; j++) if(sd[j].getAttribute("name")==="layer") a = sd[j].textContent; 
+                novas.push({nome:n, lat:parseFloat(c[1]), lng:parseFloat(c[0]), area:a}); 
+            } 
+        } 
+        if(novas.length) { 
+            CAMERAS=novas; 
+            localStorage.setItem('sicop_cams_v26', JSON.stringify(CAMERAS)); 
+            alert("KML Importado! Recarregando..."); 
+            location.reload(); 
+        } 
+    }; 
+    r.readAsText(inp.files[0]); 
+}
+
+function atualizarGraficos() { 
+  const count = (arr, k) => { const c={}; arr.forEach(x=>{c[x[k]]=(c[x[k]]||0)+1}); return c; }; 
+  const render = (id, type, labels, data, colors) => { 
+      const canvas = document.getElementById(id);
+      if(charts[id]) { charts[id].destroy(); }
+      
+      charts[id] = new Chart(canvas, { 
+          type: type, 
+          data: { 
+              labels: labels, 
+              datasets: [{ data: data, backgroundColor: colors, borderColor: '#1e293b', borderWidth: 2 }] 
+          }, 
+          options: { 
+              maintainAspectRatio: false, 
+              responsive: true, 
+              plugins: { 
+                  legend: { labels: { color: 'white', font: {size: 11} }, position: 'bottom' } 
+              }, 
+              scales: type === 'bar' || type === 'line' ? { y: { ticks: { color: 'white' }, grid: {color: '#334155'} }, x: { ticks: { color: 'white' }, grid: {display: false} } } : {} 
+          } 
+      }); 
+  }; 
+  render('chartMotivo', 'doughnut', Object.keys(count(OCORRENCIAS,'motivo')), Object.values(count(OCORRENCIAS,'motivo')), ['#3b82f6','#ef4444','#10b981','#f59e0b', '#8b5cf6']); 
+  render('chartGravidade', 'pie', Object.keys(count(OCORRENCIAS,'gravidade')), Object.values(count(OCORRENCIAS,'gravidade')), ['#ef4444','#f59e0b','#10b981']); 
+  render('chartArea', 'bar', Object.keys(count(OCORRENCIAS,'area')), Object.values(count(OCORRENCIAS,'area')), '#22d3ee'); 
+  const last7={}; for(let i=6;i>=0;i--){let d=new Date();d.setDate(d.getDate()-i);last7[d.toISOString().split('T')[0]]=0;} 
+  OCORRENCIAS.forEach(o=>{const k=o.inicio.split('T')[0];if(last7[k]!==undefined)last7[k]++}); 
+  render('chartTempo', 'line', Object.keys(last7), Object.values(last7), '#3b82f6'); 
+}
+
+function renderPlantao() { const l = document.getElementById('logList'); l.innerHTML = ''; LOGS_PLANTAO.forEach(x => { const d=document.createElement('div'); d.className='log-item'; d.innerHTML=`<span class="log-time">${new Date(x.data).toLocaleTimeString()}</span> ${x.msg}`; l.appendChild(d); }); }
+function adicionarLog() { const t = document.getElementById('logInput').value; if(!t)return; db.run("INSERT INTO plantao (msg,data,usuario) VALUES (?,?,?)", [t,new Date().toISOString(),CURRENT_USER ? CURRENT_USER.user : 'Anon']); persistir(); document.getElementById('logInput').value=''; atualizarTudo(); }
+
+function abrirModalEncerrar(id) {
+    document.getElementById('idEncerrar').value = id;
+    document.getElementById('resObs').value = '';
+    document.getElementById('modalEncerrar').style.display = 'flex';
+}
+
+function fecharModalEncerrar() {
+    document.getElementById('modalEncerrar').style.display = 'none';
+}
+
+async function confirmarEncerramento() {
+    const id = document.getElementById('idEncerrar').value;
+    const tipo = document.getElementById('resTipo').value;
+    const obs = document.getElementById('resObs').value;
+
+    if (!obs) return alert("Por favor, digite um relatório final.");
+
+    try {
+        // Atualiza na nuvem
+        const { error } = await supabase
+            .from('ocorrencias_global')
+            .update({ 
+                status: 'ENCERRADA', 
+                fim: new Date().toISOString(), 
+                resolucao: tipo, 
+                fechamento_obs: obs 
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        alert("Ocorrência #" + id + " finalizada na rede!");
+        fecharModalEncerrar();
+        // Não precisa chamar atualizarTudo aqui porque o Realtime já vai detectar a mudança
+    } catch (e) {
+        alert("Erro ao encerrar na nuvem: " + e.message);
+    }
+}
+
+function mudarTab(t) { document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active'); event.target.classList.add('active'); if(t==='mapa'&&map) setTimeout(()=>map.invalidateSize(),100); if(t==='dash') atualizarGraficos(); }
+function atualizarSelectAreas() { const s = document.getElementById('filtroArea'); s.innerHTML='<option value="TODOS">Todas Áreas</option>'; new Set(CAMERAS.map(c=>c.area||'GERAL')).forEach(a=>{const o=document.createElement('option');o.value=a;o.innerText=a;s.appendChild(o)}); }
+function limparFiltroData(){ document.getElementById('filtroData').value=''; atualizarTudo(); }
+function buscarCam(v){ if(v.length<3)return; const c=CAMERAS.find(x=>x.nome.toLowerCase().includes(v.toLowerCase())); if(c) { focarOcorrencia(c.nome); } }
+function sair(){ if(confirm("Deseja baixar backup antes de sair?")) fazerBackup(); localStorage.removeItem('sicop_user'); location.reload(); }
+function sqlToObj(r){ return r.values.map(v => { const o={}; r.columns.forEach((c,i)=>o[c]=v[i]); return o; }); }
+function toggleFullScreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { if (document.exitFullscreen) { document.exitFullscreen(); } } }
+
+// --- MAPA E FERRAMENTAS ---
+
+function initMap() {
+  if (map) return;
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution:'Esri'});
+  const topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {attribution:'Esri', maxZoom: 19});
+  const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {attribution:'CartoDB'});
+  map = L.map('map', { layers: [sat], zoomControl: false }).setView([-19.92, -43.94], 13);
+  L.control.layers({"Satélite": sat, "Topográfico": topo, "Tático": dark}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  markers = L.markerClusterGroup({ disableClusteringAtZoom: 16 }); map.addLayer(markers);
+  assetsLayer = L.layerGroup().addTo(map); pulseLayer = L.layerGroup().addTo(map);
+
+  map.on('click', async function(e) {
+      if(isRadiusToolActive) { 
+          if(activeRadius) map.removeLayer(activeRadius); 
+          activeRadius = L.circle(e.latlng, { color: 'red', fillColor: '#f03', fillOpacity: 0.15, weight: 1, radius: 500 }).addTo(map); 
+          const div = document.createElement('div'); 
+          div.innerHTML = "<b>Zona</b><br><button onclick='removerZona()' style='background:#ef4444;color:white;border:none;margin-top:5px;cursor:pointer;padding:3px 6px;border-radius:3px'>Remover</button>"; 
+          activeRadius.bindPopup(div).openPopup(); 
+          isRadiusToolActive = false; document.getElementById('btnRadius').classList.remove('active'); 
+          return;
+      }
+      
+      if(isPinMode) {
+          const lat = e.latlng.lat;
+          const lng = e.latlng.lng;
+          document.getElementById('map').style.cursor = 'wait'; 
+          
+          const endereco = await buscarEndereco(lat, lng);
+          
+          document.getElementById('map').style.cursor = 'crosshair';
+          tempManualLocation = { lat: lat, lng: lng, nome: endereco }; 
+          
+          abrirModal(endereco, true); 
+          togglePinMode(); 
+      }
+  });
+}
+
+window.removerZona = function() {
+    if(activeRadius) {
+        map.removeLayer(activeRadius);
+        activeRadius = null;
+    }
+}
+
+let isPinMode = false;
+let tempManualLocation = null;
+
+function togglePinMode() {
+    isPinMode = !isPinMode;
+    const btn = document.getElementById('btnPin');
+    if(btn) {
+        if (isPinMode) {
+            btn.classList.add('active');
+            btn.style.background = 'var(--accent)';
+            document.getElementById('map').style.cursor = 'crosshair';
+            alert("MODO SELEÇÃO ATIVO:\nClique no local exato do mapa para abrir a ocorrência.");
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = ''; 
+            document.getElementById('map').style.cursor = '';
+        }
+    }
+}
+
+async function buscarEndereco(lat, lng) {
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        return data.display_name.split(',')[0] + " - " + (data.address.suburb || data.address.city || "BH"); 
+    } catch (e) {
+        return `Coord: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+}
+
+async function irParaEndereco(query) {
+    if(!query || query.length < 4) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}, Belo Horizonte, MG, Brazil&limit=1`);
+        const data = await res.json();
+        if(data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lng = parseFloat(data[0].lon);
+            map.flyTo([lat, lng], 16);
+            L.popup().setLatLng([lat, lng]).setContent("📍 " + data[0].display_name.split(',')[0]).openOn(map);
+        } else {
+            alert("Endereço não encontrado em Belo Horizonte.");
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function editarOcorrencia(id) {
+    const o = OCORRENCIAS.find(x => x.id === id);
+    if (!o) return;
+    
+    if(o.status === 'ENCERRADA' && CURRENT_USER.role !== 'admin') return alert("Apenas Administradores podem reabrir ocorrências encerradas.");
+
+    EDITING_ID = id;
+    document.getElementById('modalTitle').innerText = "Editar Ocorrência #" + id;
+    document.getElementById('btnSave').innerText = "ATUALIZAR";
+    document.getElementById('btnSave').disabled = false;
+    
+    // Reset status se houver (opcional)
+    document.getElementById('quickStatus').value = 'ONLINE'; // Ao editar ocorrência, foco é na ocorrência
+
+    const sel = document.getElementById('selCam');
+    sel.innerHTML = '';
+    
+    const camExiste = CAMERAS.find(c => c.nome === o.camera);
+    
+    if (camExiste) {
+        CAMERAS.forEach(cam => {
+            const opt = document.createElement('option');
+            opt.value = cam.nome;
+            opt.innerText = cam.nome;
+            if(cam.nome === o.camera) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        sel.disabled = false;
+    } else {
+        const opt = document.createElement('option');
+        opt.value = o.camera; 
+        opt.innerText = o.camera;
+        opt.selected = true;
+        sel.appendChild(opt);
+        sel.disabled = true;
+    }
+
+    document.getElementById('selGrav').value = o.gravidade;
+    document.getElementById('selMot').value = o.motivo;
+    document.getElementById('selAcao').value = o.acao || 'MONITORAMENTO';
+    document.getElementById('txtObs').value = o.obs;
+    document.getElementById('endAutomatico').value = o.endereco || ''; 
+    document.getElementById('editFileNote').style.display = 'block';
+    
+    document.getElementById('modal').style.display = 'flex';
+}
+</script>
+</body>
+</html>
