@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>SICOP ADMIN V3.5 - GESTÃO TOTAL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+        --bg: #0f172a; --panel: #1e293b; --border: #334155; 
+        --text: #f8fafc; --accent: #0ea5e9; --danger: #ef4444; 
+        --success: #10b981; --warn: #eab308;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+    
+    /* SIDEBAR (MENU LATERAL) */
+    .sidebar { width: 260px; background: #020617; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; z-index: 100; transition: transform 0.3s ease; }
+    .brand { font-size: 1.4rem; font-weight: bold; color: white; margin-bottom: 30px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+    .brand span { color: var(--warn); }
+    
+    .menu-btn {
+        background: transparent; border: none; color: #94a3b8; text-align: left; padding: 12px;
+        cursor: pointer; font-size: 0.95rem; border-radius: 8px; transition: 0.3s; display: flex; align-items: center; gap: 10px; margin-bottom: 5px;
+    }
+    .menu-btn:hover, .menu-btn.active { background: rgba(234, 179, 8, 0.1); color: var(--warn); font-weight: bold; }
+    
+    /* SEÇÃO NUVEM SIDEBAR */
+    .sidebar-section {
+        margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;
+    }
+    .sidebar-label {
+        font-size: 0.7rem; color: #64748b; font-weight: bold; margin-bottom: 10px; display: block; letter-spacing: 1px;
+    }
+
+    /* ÁREA PRINCIPAL */
+    .main { flex: 1; padding: 20px; overflow-y: auto; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
+    .page { display: none; animation: fadeIn 0.3s; height: 100%; }
+    .page.active { display: flex; flex-direction: column; }
+
+    /* DASHBOARD CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+    .card { background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 12px; position: relative; overflow: hidden; }
+    .card h3 { margin: 0 0 5px 0; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+    .big-num { font-size: 2.2rem; font-weight: 800; color: white; }
+    .card-icon { position: absolute; right: 20px; top: 20px; font-size: 2.5rem; opacity: 0.1; }
+
+    /* LAYOUT DE USUÁRIOS (FORM + TABLE) */
+    .split-view { display: flex; gap: 20px; height: 100%; overflow: hidden; }
+    .form-panel { width: 320px; background: #111827; padding: 20px; border-radius: 8px; border: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .list-panel { flex: 1; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+    /* TABELA */
+    .table-wrapper { flex: 1; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; } /* Min-width força scroll no mobile */
+    th { background: #020617; color: var(--accent); padding: 10px; text-align: left; position: sticky; top: 0; z-index: 10; font-size: 0.8rem; text-transform: uppercase; }
+    td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; vertical-align: middle; }
+    tr:hover { background: rgba(255,255,255,0.03); }
+
+    /* COMPONENTES DE FORMULÁRIO */
+    input, select { width: 100%; padding: 10px; background: #020617; border: 1px solid var(--border); color: white; border-radius: 6px; box-sizing: border-box; }
+    label { font-size: 0.75rem; font-weight: bold; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 4px; }
+    
+    button { cursor: pointer; padding: 10px; border-radius: 6px; border: none; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; justify-content: center; }
+    .btn-primary { background: var(--accent); color: white; } .btn-primary:hover { background: #0284c7; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-warn { background: var(--warn); color: black; }
+    .btn-dark { background: #334155; color: white; }
+
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+    .badge-admin { background: var(--danger); color: white; }
+    .badge-sup { background: var(--warn); color: black; }
+    .badge-user { background: #475569; color: white; }
+
+    /* OVERLAYS (LOGIN / PANIC) */
+    .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+    .login-box { width: 300px; text-align: center; }
+    
+    #panicOverlay { background: black; display: none; }
+    .panic-text { color: #333; font-family: monospace; margin-top: 20px; font-size: 1.5rem; letter-spacing: 2px; }
+
+    /* TOAST */
+    #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 3000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 15px; border-left: 5px solid var(--accent); box-shadow: 0 5px 15px black; }
+    #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+
+    /* SENHA VISUALIZADOR */
+    .pass-container { display: flex; gap: 5px; background: rgba(0,0,0,0.3); padding: 2px; border-radius: 4px; border: 1px solid #334155; width: 100px; }
+    .pass-input { background: transparent; border: none; color: white; width: 100%; font-family: monospace; text-align:center; padding: 0; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    
+    .btn-panic { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; width: 100%; margin-top: auto; animation: pulseRed 2s infinite; }
+
+    /* --- MOBILE RESPONSIVE ADDS --- */
+    .mobile-header { display: none; margin-bottom: 20px; align-items: center; justify-content: space-between; }
+    .mobile-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 90; }
+
+    @media (max-width: 768px) {
+        .sidebar { position: fixed; left: -280px; height: 100%; box-shadow: 10px 0 20px rgba(0,0,0,0.5); }
+        .sidebar.open { left: 0; transform: translateX(0); }
+        .mobile-header { display: flex; }
+        .mobile-overlay.open { display: block; }
+        
+        .stats-grid { grid-template-columns: 1fr; } /* Cards um embaixo do outro */
+        .split-view { flex-direction: column; overflow-y: auto; } /* Form em cima da tabela */
+        .form-panel { width: 100%; flex: none; }
+        .list-panel { flex: none; height: 500px; } /* Altura fixa para scroll */
+        .main { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toast">Notificação</div>
+<div class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+<div id="loginOverlay" class="overlay">
+    <div class="login-box">
+        <i class="fa-solid fa-shield-cat fa-4x" style="color:var(--warn); margin-bottom: 20px;"></i>
+        <h2 style="margin-bottom: 5px; color: white;">SICOP ADMIN V3.5</h2>
+        <p style="color:#64748b; margin-bottom: 20px;">Gestão Total Integrada</p>
+        <input type="password" id="masterPass" placeholder="Senha Mestra" style="margin-bottom: 15px; text-align: center;" onkeyup="if(event.key==='Enter') tentarLogin()">
+        <button class="btn-warn" style="width: 100%; padding: 12px;" onclick="tentarLogin()">ACESSAR SISTEMA</button>
+        <p id="loginMsg" style="color:var(--danger); font-size:0.8rem; margin-top:10px; display:none">Acesso Negado</p>
+    </div>
+</div>
+
+<div id="panicOverlay" class="overlay">
+    <i class="fa-brands fa-linux fa-5x" style="color:#333;"></i>
+    <div class="panic-text">KERNEL PANIC - SYSTEM HALTED</div>
+    <div style="margin-top: 50px;">
+        <input type="password" id="panicPass" placeholder="Root Password" style="background: #111; border: 1px solid #333; color: #555; text-align: center; width: 200px;">
+        <button onclick="sairPanico()" style="background: #222; color: #555; border: 1px solid #333; margin-top: 10px;">REBOOT</button>
+    </div>
+</div>
+
+<div class="sidebar" id="sidebar">
+    <div class="brand"><i class="fa-solid fa-users-gear"></i> GMBH <span>ADMIN</span></div>
+    
+    <button class="menu-btn active" onclick="nav('dash'); toggleSidebar(true)"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
+    <button class="menu-btn" onclick="nav('users'); toggleSidebar(true)"><i class="fa-solid fa-user-shield"></i> Gestão Usuários</button>
+    <button class="menu-btn" onclick="nav('audit'); toggleSidebar(true)"><i class="fa-solid fa-file-contract"></i> Auditoria Logs</button>
+    
+    <div class="sidebar-section">
+        <label class="sidebar-label">DADOS & NUVEM</label>
+        
+        <button class="menu-btn" onclick="fazerBackupCompleto()" style="color:#cbd5e1">
+            <i class="fa-solid fa-file-zipper"></i> Backup Full
+        </button>
+        
+        <button class="menu-btn" onclick="salvarNaNuvem()" style="color:#34d399">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Enviar Nuvem
+        </button>
+        
+        <button class="menu-btn" onclick="carregarDaNuvem()" style="color:#0ea5e9">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Baixar Nuvem
+        </button>
+    </div>
+    
+    <button class="btn-panic" onclick="ativarPanico()" title="F9"><i class="fa-solid fa-triangle-exclamation"></i> PÂNICO</button>
+    <button class="btn-dark" onclick="location.reload()" style="margin-top:10px; width:100%"><i class="fa-solid fa-power-off"></i> Sair</button>
+</div>
+
+<div class="main">
+    
+    <div class="mobile-header">
+        <div style="font-weight:bold; color:white"><i class="fa-solid fa-shield-halved"></i> GMBH ADMIN</div>
+        <button class="btn-dark" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i> Menu</button>
+    </div>
+
+    <div id="page-dash" class="page active">
+        <h2 style="color:white; margin-top:0"><i class="fa-solid fa-chart-line"></i> Visão Geral</h2>
+        
+        <div class="stats-grid">
+            <div class="card">
+                <h3>Total Usuários</h3>
+                <div class="big-num" id="stat-users">0</div>
+                <i class="fa-solid fa-users card-icon"></i>
+            </div>
+            <div class="card" style="border-color:var(--accent)">
+                <h3>Logs Registrados</h3>
+                <div class="big-num" id="stat-logs" style="color:var(--accent)">0</div>
+                <i class="fa-solid fa-list-check card-icon" style="color:var(--accent)"></i>
+            </div>
+            <div class="card" style="border-color:var(--danger)">
+                <h3>Ocorrências BD</h3>
+                <div class="big-num" id="stat-ocs" style="color:var(--danger)">0</div>
+                <i class="fa-solid fa-database card-icon" style="color:var(--danger)"></i>
+            </div>
+        </div>
+
+        <div class="card" style="flex:1; display:flex; flex-direction:column;">
+            <h3>Distribuição da Equipe</h3>
+            <div style="flex:1; position:relative; min-height:200px">
+                <canvas id="teamChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-users" class="page">
+        <div class="split-view">
+            <div class="form-panel" id="formPanel">
+                <h3 style="margin:0 0 10px 0; color:var(--warn)" id="formTitle">Novo Usuário</h3>
+                <input type="hidden" id="edit_id">
+                
+                <div>
+                    <label>Matrícula (Login)</label>
+                    <input id="u_bm" placeholder="Ex: BM12345" oninput="this.value = this.value.toUpperCase()">
+                </div>
+                <div>
+                    <label>Nome de Guerra</label>
+                    <input id="u_nome" placeholder="Ex: Sd. Silva">
+                </div>
+                <div>
+                    <label>Instituição</label>
+                    <select id="u_orgao">
+                        <option value="GMBH">GMBH</option>
+                        <option value="SAMU">SAMU</option>
+                        <option value="PM">Polícia Militar</option>
+                        <option value="COP">COP Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Perfil</label>
+                    <select id="u_role">
+                        <option value="user">Operador</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Senha</label>
+                    <div style="display:flex; gap:5px">
+                        <input id="u_pass" placeholder="Senha">
+                        <button class="btn-dark" onclick="gerarSenha()"><i class="fa-solid fa-dice"></i></button>
+                    </div>
+                </div>
+
+                <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px">
+                    <button class="btn-primary" id="btnSubmit" onclick="salvarUsuario()">CADASTRAR</button>
+                    <button class="btn-dark" id="btnCancel" onclick="cancelarEdicao()" style="display:none">CANCELAR</button>
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-top:10px">
+                        <button class="btn-dark" onclick="exportarJSON()" style="background:#064e3b; color:#34d399"><i class="fa-solid fa-file-export"></i> Exportar</button>
+                        <button class="btn-dark" onclick="document.getElementById('inputImportAuto').click()" style="background:#1e3a8a; color:#93c5fd"><i class="fa-solid fa-file-import"></i> Importar</button>
+                    </div>
+                    <input type="file" id="inputImportAuto" hidden accept=".json" onchange="importarJSON(this)">
+                </div>
+            </div>
+
+            <div class="list-panel">
+                <div style="padding:10px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between">
+                    <input type="text" placeholder="🔍 Buscar usuário..." onkeyup="filtrarTabela(this.value)" style="width:250px">
+                    <span style="font-size:0.8rem; color:#666; align-self:center">Duplo clique no status para alternar</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Matrícula</th><th>Nome</th><th>Órgão</th><th>Perfil</th><th>Senha</th><th>Status</th><th>Ações</th></tr></thead>
+                        <tbody id="listaUsers"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-audit" class="page">
+        <h2 style="color:white; margin-top:0"><i class="fa-solid fa-list-check"></i> Auditoria Logs</h2>
+        <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:15px">Registros extraídos do Livro de Plantão (Tabela: plantao).</p>
+        
+        <div class="list-panel" style="flex:1">
+            <div class="table-wrapper">
+                <table id="tabelaLogs">
+                    <thead><tr><th>Data/Hora</th><th>Operador</th><th>Mensagem Registrada</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- SCRIPT PARA MOBILE (ÚNICA ADIÇÃO) ---
+    function toggleSidebar(forceClose = false) {
+        const sb = document.getElementById('sidebar');
+        const ov = document.querySelector('.mobile-overlay');
+        if(forceClose) {
+            sb.classList.remove('open');
+            ov.classList.remove('open');
+        } else {
+            sb.classList.toggle('open');
+            ov.classList.toggle('open');
+        }
+    }
+
+    // --- CONFIGURAÇÃO JSONBIN E SEGURANÇA ---
+    const BIN_ID = "6955e844d0ea881f404ce928"; 
+    // Chave protegida via Base64 para evitar leitura direta no código fonte
+    const _k_part1 = "JDJhJDEwJGkvRi5YYU85eFRkbGYxTTRZZlJLaWVxcnBhRjVNYTBqWGh6Lkpyc2MxOVljYzN5VUNnODVT"; 
+    const API_KEY = atob(_k_part1);
+    
+    // --- INIT ---
+    const imgDB = new Dexie("Sicop_Fix_V26");
+    imgDB.version(1).stores({ files: "id, blob" });
+    
+    let db = null;
+    let USERS = [];
+    let chartInstance = null;
+    const ADMIN_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; 
+
+    // --- AUXILIARES ---
+    function sqlToObj(r) { 
+        return r.values.map(v => { 
+            const o={}; r.columns.forEach((c,i)=>o[c]=v[i]); return o; 
+        }); 
+    }
+
+    function nav(p) {
+        document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.menu-btn').forEach(x => x.classList.remove('active'));
+        document.getElementById('page-'+p).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    async function sha256(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // --- LOGIN E DB INIT ---
+    async function initDB() {
+        if(!window.SQL) window.SQL = await window.initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}` });
+        
+        try {
+            const saved = await imgDB.files.get("sqlite_db");
+            if (saved) {
+                db = new SQL.Database(new Uint8Array(saved.blob));
+            } else {
+                db = new SQL.Database();
+                db.run("CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY, user TEXT UNIQUE, pass TEXT, role TEXT, nome TEXT, orgao TEXT, status TEXT DEFAULT 'ATIVO');");
+                db.run("INSERT OR IGNORE INTO usuarios (user, pass, role, nome, orgao, status) VALUES ('admin', 'admin', 'admin', 'Administrador', 'COP', 'ATIVO')");
+                persistir();
+            }
+            atualizarInterface();
+        } catch(e) { console.error("Erro DB: " + e); }
+    }
+
+    async function tentarLogin() {
+        const p = document.getElementById('masterPass').value;
+        const hash = await sha256(p);
+        
+        if(!db) await initDB();
+
+        if(hash === ADMIN_HASH) {
+            localStorage.setItem('sicop_perfil', 'admin');
+            document.getElementById('loginOverlay').style.display = 'none';
+            showToast("Acesso Mestre Liberado");
+            return;
+        }
+
+        try {
+            const res = db.exec("SELECT role, nome FROM usuarios WHERE pass = ?", [p]);
+            if(res.length > 0) {
+                const perfil = res[0].values[0][0]; 
+                const nome = res[0].values[0][1];
+                localStorage.setItem('sicop_perfil', perfil);
+                document.getElementById('loginOverlay').style.display = 'none';
+                showToast("Bem-vindo, " + nome);
+            } else {
+                document.getElementById('loginMsg').style.display = 'block';
+                document.getElementById('loginMsg').innerText = "Senha inválida ou usuário inexistente";
+            }
+        } catch(e) {
+            alert("Erro ao consultar usuários. O banco está vazio?");
+        }
+    }
+
+    async function persistir() {
+        const data = db.export();
+        await imgDB.files.put({ id: "sqlite_db", blob: data });
+        localStorage.setItem('sicop_sync_id', Date.now()); // Sincronia com Index
+    }
+
+    // --- LÓGICA DE DADOS ---
+    function atualizarInterface() {
+        if(!db) return;
+        
+        try { db.exec("SELECT nome, orgao, status FROM usuarios LIMIT 1"); } 
+        catch (e) { 
+            try { db.run("ALTER TABLE usuarios ADD COLUMN nome TEXT"); } catch(err){}
+            try { db.run("ALTER TABLE usuarios ADD COLUMN orgao TEXT DEFAULT 'GMBH'"); } catch(err){}
+            try { db.run("ALTER TABLE usuarios ADD COLUMN status TEXT DEFAULT 'ATIVO'"); } catch(err){}
+            persistir();
+        }
+
+        const res = db.exec("SELECT id, user, pass, role, nome, orgao, status FROM usuarios ORDER BY id DESC");
+        const tbody = document.getElementById('listaUsers');
+        tbody.innerHTML = '';
+        
+        let adm=0, sup=0, op=0;
+        
+        if (res.length > 0) {
+            USERS = res[0].values;
+            USERS.forEach(u => {
+                const [id, user, pass, role, nome, orgao, status] = u;
+                if(role === 'admin') adm++; else if(role === 'supervisor') sup++; else op++;
+
+                let badge = role === 'admin' ? 'badge-admin' : (role === 'supervisor' ? 'badge-sup' : 'badge-user');
+                let statusColor = status === 'ATIVO' ? '#10b981' : '#ef4444';
+                let passDisplay = (!pass) ? '---' : pass;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${user}</strong></td>
+                    <td>${nome || '---'}</td>
+                    <td><small>${orgao || 'GMBH'}</small></td>
+                    <td><span class="badge ${badge}">${role}</span></td>
+                    <td>
+                        <div class="pass-container">
+                            <input type="password" value="${passDisplay}" id="pi_${id}" class="pass-input" readonly>
+                            <i class="fa-solid fa-eye" style="font-size:10px; cursor:pointer; color:#aaa" onmousedown="document.getElementById('pi_${id}').type='text'" onmouseup="document.getElementById('pi_${id}').type='password'"></i>
+                        </div>
+                    </td>
+                    <td style="color:${statusColor}; cursor:pointer; font-weight:bold" ondblclick="toggleStatus(${id}, '${status}')">${status}</td>
+                    <td>
+                        <button style="color:var(--warn); background:none; padding:2px" onclick="editar(${id})"><i class="fa-solid fa-pencil"></i></button>
+                        <button style="color:var(--danger); background:none; padding:2px" onclick="excluir(${id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('stat-users').innerText = USERS.length;
+        }
+
+        try {
+            const resLogs = db.exec("SELECT * FROM plantao ORDER BY data DESC LIMIT 100");
+            const tbLog = document.querySelector('#tabelaLogs tbody');
+            tbLog.innerHTML = '';
+            if(resLogs.length) {
+                document.getElementById('stat-logs').innerText = resLogs[0].values.length;
+                resLogs[0].values.forEach(l => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="color:var(--accent)">${new Date(l[2]).toLocaleString()}</td><td><strong>${l[3]||'Sistema'}</strong></td><td>${l[1]}</td>`;
+                    tbLog.appendChild(tr);
+                });
+            }
+        } catch(e) { console.log("Sem logs"); }
+
+        try {
+            const resOc = db.exec("SELECT count(*) FROM ocorrencias");
+            if(resOc.length) document.getElementById('stat-ocs').innerText = resOc[0].values[0][0];
+        } catch(e){}
+
+        renderChart(adm, sup, op);
+    }
+
+    // --- OPERAÇÕES CRUD ---
+    function salvarUsuario() {
+        const id = document.getElementById('edit_id').value;
+        const user = document.getElementById('u_bm').value.trim().toUpperCase();
+        const nome = document.getElementById('u_nome').value.trim();
+        const orgao = document.getElementById('u_orgao').value;
+        const role = document.getElementById('u_role').value;
+        const pass = document.getElementById('u_pass').value;
+
+        if(!user || !nome) return showToast("Dados incompletos", "error");
+
+        try {
+            if(id) {
+                db.run("UPDATE usuarios SET user=?, nome=?, orgao=?, role=?, pass=? WHERE id=?", [user, nome, orgao, role, pass, id]);
+                showToast("Usuário Atualizado");
+            } else {
+                db.run("INSERT INTO usuarios (user, pass, role, nome, orgao, status) VALUES (?, ?, ?, ?, ?, 'ATIVO')", [user, pass, role, nome, orgao]);
+                showToast("Usuário Criado");
+            }
+            persistir(); 
+            atualizarInterface(); 
+            cancelarEdicao();
+        } catch(e) { showToast("Erro: Matrícula já existe?", "error"); }
+    }
+
+    function editar(id) {
+        if(id===1) return showToast("Admin Root não editável aqui.", "error");
+        const u = USERS.find(x => x[0] === id);
+        if(!u) return;
+        
+        document.getElementById('edit_id').value = id;
+        document.getElementById('u_bm').value = u[1];
+        document.getElementById('u_pass').value = u[2];
+        document.getElementById('u_role').value = u[3];
+        document.getElementById('u_nome').value = u[4];
+        document.getElementById('u_orgao').value = u[5];
+
+        document.getElementById('formTitle').innerText = "Editando Usuário";
+        document.getElementById('btnSubmit').innerText = "SALVAR";
+        document.getElementById('btnSubmit').className = "btn-warn";
+        document.getElementById('btnCancel').style.display = "inline-flex";
+    }
+
+    function cancelarEdicao() {
+        document.getElementById('edit_id').value = "";
+        document.getElementById('u_bm').value = "";
+        document.getElementById('u_nome').value = "";
+        document.getElementById('u_pass').value = "";
+        
+        document.getElementById('formTitle').innerText = "Novo Usuário";
+        document.getElementById('btnSubmit').innerText = "CADASTRAR";
+        document.getElementById('btnSubmit').className = "btn-primary";
+        document.getElementById('btnCancel').style.display = "none";
+    }
+
+    function excluir(id) {
+        if(id===1) return;
+        if(confirm("Excluir usuário permanentemente? Ele será desconectado imediatamente.")) {
+            db.run("DELETE FROM usuarios WHERE id=?", [id]);
+            persistir(); 
+            atualizarInterface();
+        }
+    }
+
+    function toggleStatus(id, atual) {
+        if(id===1) return;
+        const novo = atual === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+        db.run("UPDATE usuarios SET status=? WHERE id=?", [novo, id]);
+        persistir(); 
+        atualizarInterface();
+    }
+
+    function gerarSenha() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let pass = ""; for(let i=0;i<6;i++) pass += chars.charAt(Math.floor(Math.random()*chars.length));
+        document.getElementById('u_pass').value = pass;
+    }
+
+    function renderChart(adm, sup, op) {
+        const ctx = document.getElementById('teamChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Admin', 'Supervisor', 'Operador'],
+                datasets: [{ data: [adm, sup, op], backgroundColor: ['#ef4444', '#eab308', '#3b82f6'], borderWidth: 0 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: 'white' } } } }
+        });
+    }
+
+    function exportarJSON() {
+        if(!db) return;
+        const res = db.exec("SELECT * FROM usuarios");
+        const dados = res.length ? sqlToObj(res[0]) : [];
+        const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+        saveAs(blob, 'credenciais_sicop.json');
+    }
+    
+    function importarJSON(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const dados = JSON.parse(e.target.result);
+                dados.forEach(u => {
+                    db.run("INSERT OR REPLACE INTO usuarios (user, pass, role, nome, orgao, status) VALUES (?,?,?,?,?,?)", 
+                    [u.user, u.pass, u.role, u.nome, u.orgao, u.status || 'ATIVO']);
+                });
+                persistir(); 
+                atualizarInterface(); 
+                showToast("Usuários importados com sucesso!");
+            } catch(err) {
+                showToast("Erro ao ler arquivo JSON", "error");
+            }
+        };
+        reader.readAsText(input.files[0]);
+    }
+
+    async function fazerBackupCompleto() {
+        if (!confirm("Gerar Backup Completo?")) return;
+        const z = new JSZip();
+        z.file("sicop_database.sqlite", db.export());
+        const fotos = await imgDB.files.toArray();
+        const pasta = z.folder("midia");
+        fotos.forEach(f => { if(f.id!=='sqlite_db') pasta.file(f.id, f.blob); });
+        z.generateAsync({type:"blob"}).then(c => saveAs(c, `SICOP_FULL_BACKUP.zip`));
+    }
+
+    function filtrarTabela(val) {
+        document.querySelectorAll('#listaUsers tr').forEach(r => r.style.display = r.innerText.toUpperCase().includes(val.toUpperCase()) ? '' : 'none');
+    }
+
+    function showToast(msg, type='success') {
+        const t = document.getElementById('toast');
+        t.innerText = msg; t.className = "show"; t.style.borderLeftColor = type==='error'?'#ef4444':'#10b981';
+        setTimeout(()=>t.className="", 3000);
+    }
+
+    // --- PÂNICO ---
+    document.addEventListener('keydown', e => { if(e.key==="F9") ativarPanico(); });
+    function ativarPanico() { document.getElementById('panicOverlay').style.display='flex'; }
+    async function sairPanico() {
+        if(await sha256(document.getElementById('panicPass').value) === ADMIN_HASH) {
+            document.getElementById('panicOverlay').style.display='none';
+            document.getElementById('panicPass').value='';
+        }
+    }
+
+    // --- FUNÇÕES DE NUVEM (PRESERVADAS) ---
+
+    async function salvarNaNuvem() {
+    if (!confirm("⚠️ ATENÇÃO: Enviar dados e STATUS das câmeras para a nuvem?")) return;
+
+    showToast("☁️ Enviando alterações...", "info");
+    
+    // 1. Coleta Usuários
+    const resUsers = db.exec("SELECT * FROM usuarios");
+    const listaUsuarios = resUsers.length ? sqlToObj(resUsers[0]) : [];
+
+    // 2. Coleta Ocorrências
+    const resOco = db.exec("SELECT * FROM ocorrencias");
+    const listaOcorrencias = resOco.length ? sqlToObj(resOco[0]) : [];
+
+    // 3. Coleta Status das Câmeras (FUNDAMENTAL)
+    const resCams = db.exec("SELECT * FROM status_cameras");
+    const listaStatusCams = resCams.length ? sqlToObj(resCams[0]) : [];
+
+    // Monta o pacote completo
+    const payload = {
+        usuarios: listaUsuarios, 
+        ocorrencias: listaOcorrencias,
+        cameras: listaStatusCams // Agora o Index vai receber isto!
+    };
+
+    try {
+        const req = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+            body: JSON.stringify(payload)
+        });
+        if (req.ok) showToast("✅ Nuvem Atualizada!", "success");
+        else throw new Error("Erro ao salvar");
+    } catch (e) {
+        showToast("❌ Falha no envio.", "error");
+    }
+}
+
+    async function carregarDaNuvem() {
+        if(!confirm("⚠️ Isso substituirá o banco local pelos dados da nuvem. Continuar?")) return;
+        
+        showToast("☁️ Baixando...", "info");
+        try {
+            const req = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                headers: { "X-Master-Key": API_KEY }
+            });
+            
+            if (!req.ok) throw new Error("Erro API");
+            const res = await req.json();
+            const dados = res.record;
+
+            db.run("BEGIN TRANSACTION");
+
+            // Importa Usuários
+            if (dados.usuarios && Array.isArray(dados.usuarios)) {
+                db.run("DELETE FROM usuarios WHERE id > 1"); 
+                dados.usuarios.forEach(u => {
+                    db.run(`INSERT OR REPLACE INTO usuarios (id, user, pass, role, nome, orgao, status) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+                            [u.id, u.user, u.pass, u.role, u.nome, u.orgao, u.status || 'ATIVO']);
+                });
+            }
+
+            // Importa Ocorrências
+            if (dados.ocorrencias && Array.isArray(dados.ocorrencias)) {
+                try {
+                    db.run("DELETE FROM ocorrencias");
+                } catch(e) {
+                    db.run(`CREATE TABLE IF NOT EXISTS ocorrencias (id INTEGER PRIMARY KEY, camera TEXT, area TEXT, gravidade TEXT, motivo TEXT, acao TEXT, obs TEXT, status TEXT, inicio TEXT, fim TEXT, img_id TEXT, lat REAL, lng REAL, endereco TEXT, resolucao TEXT, fechamento_obs TEXT, img_fim_id TEXT);`);
+                }
+
+                dados.ocorrencias.forEach(o => {
+                     db.run(`INSERT OR REPLACE INTO ocorrencias (id, camera, area, gravidade, motivo, acao, obs, status, inicio, fim, img_id, lat, lng, endereco, resolucao) 
+                             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, 
+                             [o.id, o.camera, o.area, o.gravidade, o.motivo, o.acao, o.obs, o.status, o.inicio, o.fim, o.img_id, o.lat, o.lng, o.endereco, o.resolucao]);
+                });
+            }
+
+            db.run("COMMIT");
+            persistir();
+            atualizarInterface();
+            showToast("✅ Sincronizado!", "success");
+
+        } catch (e) {
+            console.error(e);
+            db.run("ROLLBACK");
+            showToast("❌ Erro ao baixar.", "error");
+        }
+    }
+</script>
+
+</body>
+</html>

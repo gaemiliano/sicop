@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SICOP v17.50 - PRO NIGHT OPS</title>
+    
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root { 
+            --navy: #002855; 
+            --gold: #C5A059; 
+            --bg: #eef2f5; 
+            --panel-bg: #ffffff;
+            --text: #333;
+            --input-bg: #fafafa;
+            --border: #ccc;
+            --ok: #28a745; 
+            --err: #dc3545; 
+        }
+
+        /* MODO NOTURNO */
+        [data-theme="dark"] {
+            --navy: #1a1a1a;
+            --gold: #b8860b;
+            --bg: #121212;
+            --panel-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --input-bg: #2d2d2d;
+            --border: #444;
+        }
+
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: 0.3s; }
+        
+        /* HEADER */
+        .header { background: var(--navy); color: white; padding: 15px 30px; border-bottom: 5px solid var(--gold); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .title { font-size: 20px; font-weight: 800; display:flex; gap:10px; align-items:center; }
+        
+        .operator-box { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 4px; border: 1px solid var(--gold); }
+        .operator-input { background: transparent; border: none; color: #fff; font-weight: bold; font-size: 14px; text-transform: uppercase; width: 200px; outline: none; }
+        .operator-input::placeholder { color: #bbb; font-weight: normal; }
+
+        /* TABS */
+        .tabs { display: flex; gap: 5px; margin-top: 20px; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .tab-btn { padding: 12px 20px; border: none; background: #999; cursor: pointer; font-weight: bold; border-radius: 5px 5px 0 0; color: #fff; transition: 0.3s; }
+        .tab-btn.active { background: var(--panel-bg); color: var(--navy); border-top: 3px solid var(--navy); color: var(--text); }
+
+        /* GRID */
+        .container { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 450px 1fr; gap: 25px; background: var(--panel-bg); padding: 25px; border-radius: 0 5px 5px 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        /* INPUTS */
+        .section-lbl { font-size: 11px; font-weight: bold; color: var(--gold); margin-top: 15px; display: block; text-transform: uppercase; }
+        textarea.field { width: 100%; padding: 10px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-family: monospace; font-size: 11px; resize: vertical; box-sizing: border-box; margin-top:5px; }
+        #raw_meta { height: 100px; border-left: 4px solid var(--gold); }
+        #raw_hist { height: 180px; border-left: 4px solid var(--navy); }
+        #raw_extra { height: 80px; border-left: 4px solid #666; }
+
+        /* PREVIEW OFICIAL */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        table.official { width: 100%; border-collapse: collapse; border: 2px solid #000; font-family: Arial, sans-serif; background: #fff; color: #000; }
+        table.official td { border: 1px solid #000; padding: 5px; vertical-align: top; }
+        .lbl { font-size: 9px; font-weight: bold; display: block; color: #000; }
+        
+        /* Campos Editáveis */
+        .inp { width: 100%; border: 1px dashed #ccc; padding: 3px; font-size: 12px; font-weight: bold; color: #002855; text-transform: uppercase; background: #fdfdfd; outline: none; }
+        .inp:focus { border: 1px solid var(--navy); background: #fff; }
+        
+        /* Justificado no CSS também para visualização */
+        .inp-hist { width: 100%; min-height: 350px; border: 1px dashed #ccc; padding: 5px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: justify; resize: vertical; outline: none; color: #000; }
+
+        /* CONTROLE (TABELA DE DOBRA) */
+        .control-preview { border: 1px dashed #999; padding: 20px; background: #fdfaff; color: #000; }
+        table.control-table { width: 100%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; margin-bottom: 15px; background: #fff; }
+        table.control-table th { border: 1px solid #000; background: #eee; font-size: 10px; padding: 4px; color: #000; }
+        table.control-table td { border: 1px solid #000; padding: 5px; font-size: 12px; font-weight: bold; text-align: center; color: #000; }
+        .control-hist { width: 100%; min-height: 200px; border: 1px solid #ccc; padding: 10px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; text-align: justify; background: white; color: #000; }
+
+        /* BOTÕES */
+        .btn { padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; width: 100%; margin-top: 10px; }
+        .btn-proc { background: var(--navy); }
+        .btn-ia { background: linear-gradient(90deg, #667eea, #764ba2); }
+        .btn-clean { background: var(--err); }
+        .btn-download-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn-word { background: #2b579a; }
+        .btn-pdf { background: #b30b00; }
+        .btn-copy { background: #28a745; margin-top: 0; width: auto; }
+        .btn-mode { background: transparent; border: 1px solid rgba(255,255,255,0.3); width: auto; margin-top:0; font-size: 16px; padding: 5px 10px; }
+
+        /* AUDIT */
+        .audit-log { font-size: 11px; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 4px; display: none; }
+        .msg-err { color: var(--err); font-weight: bold; }
+        .msg-ok { color: var(--ok); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="title">
+        SICOP v17.50
+        <button class="btn btn-mode" onclick="toggleMode()" title="Modo Noturno/Diurno">🌙</button>
+    </div>
+    
+    <div class="operator-box">
+        <span style="font-size:10px; color:#ccc;">OPERADOR:</span>
+        <input type="text" id="op_name" class="operator-input" placeholder="NOME DE GUERRA" oninput="saveData()">
+    </div>
+
+    <div style="font-size:11px; text-align:right;">GCMBH<br><span id="dt"></span></div>
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="tab('t1')">📄 DOCUMENTO OFICIAL</button>
+    <button class="tab-btn" onclick="tab('t2')">📊 CONTROLE (DOBRA)</button>
+</div>
+
+<div class="container">
+    
+    <div class="input-panel">
+        <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:5px;">Entrada de Dados</h3>
+        
+        <span class="section-lbl">A. CABEÇALHO (BI, REDS, Data...)</span>
+        <textarea id="raw_meta" class="field" placeholder="Cole o topo do BH Digital..." oninput="saveData()"></textarea>
+        
+        <span class="section-lbl">B. HISTÓRICO (Narrativa Pura)</span>
+        <textarea id="raw_hist" class="field" placeholder="Cole SOMENTE o histórico..." oninput="saveData()"></textarea>
+        
+        <span class="section-lbl">C. RODAPÉ (Complementar)</span>
+        <textarea id="raw_extra" class="field" placeholder="Cole Guarnição, Envolvidos..." oninput="saveData()"></textarea>
+        
+        <button class="btn btn-proc" onclick="processar()">⬇️ PROCESSAR DADOS</button>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <button class="btn btn-ia" onclick="ia()">✨ IA CORRETORA</button>
+            <button class="btn btn-clean" onclick="limpar()">🗑️ LIMPAR</button>
+        </div>
+
+        <div id="audit" class="audit-log"></div>
+
+        <div class="btn-download-group">
+            <button class="btn btn-word" onclick="gerarWord()" id="bw" disabled style="opacity:0.5">📄 BAIXAR WORD</button>
+            <button class="btn btn-pdf" onclick="gerarPDF()" id="bp" disabled style="opacity:0.5">📄 BAIXAR PDF</button>
+        </div>
+    </div>
+
+    <div class="output-panel">
+        
+        <div id="t1" class="tab-content active">
+            <h3 style="border-bottom:1px solid var(--border); margin-top:0;">Prévia Editável (Confira antes de baixar)</h3>
+            <table class="official">
+                <tr>
+                    <td width="20%"><span class="lbl">BI Nº</span><input type="text" class="inp" id="f_bi" placeholder="DIGITE O BI..."></td>
+                    <td width="20%"><span class="lbl">BO Nº (REDS)</span><input type="text" class="inp" id="f_bo" value="N/A"></td>
+                    <td width="60%"><span class="lbl">REGIONAL</span><input type="text" class="inp" id="f_reg"></td>
+                </tr>
+                <tr>
+                    <td><span class="lbl">DATA</span><input type="text" class="inp" id="f_dat"></td>
+                    <td colspan="2"><span class="lbl">HORÁRIO</span><input type="text" class="inp" id="f_hor"></td>
+                </tr>
+                <tr>
+                    <td><span class="lbl">NATUREZA</span><input type="text" class="inp" id="f_nat" style="font-size:10px;"></td>
+                    <td colspan="2"><span class="lbl">SETOR</span><input type="text" class="inp" id="f_set"></td>
+                </tr>
+                <tr>
+                    <td colspan="2"><span class="lbl">LOCAL</span><input type="text" class="inp" id="f_loc"></td>
+                    <td><span class="lbl">RELATOR</span><input type="text" class="inp" id="f_rel"></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">HISTÓRICO</span><textarea class="inp-hist" id="f_his"></textarea></td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="t2" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;">Dados para Controle (Cópia Rápida)</h3>
+                <button class="btn btn-copy" onclick="copiarControle()">📋 COPIAR TABELA</button>
+            </div>
+            
+            <div class="control-preview" id="area-controle">
+                <table class="control-table">
+                    <thead>
+                        <tr>
+                            <th>Nº BI</th>
+                            <th>Próprio/ Via pública</th>
+                            <th>Classificação</th>
+                            <th>Nome do recebedor (a)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="c_bi"></td>
+                            <td id="c_tipo"></td>
+                            <td id="c_class"></td>
+                            <td id="c_rec"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="font-size:10px; font-weight:bold; margin-bottom:5px; color:#000;">HISTÓRICO (RESUMO):</div>
+                <textarea id="c_resumo" class="control-hist"></textarea>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    document.getElementById('dt').innerText = new Date().toLocaleDateString('pt-BR');
+
+    // --- SISTEMA DE TEMA & SALVAMENTO (NOVO) ---
+    function toggleMode() {
+        const body = document.body;
+        const isDark = body.getAttribute("data-theme") === "dark";
+        body.setAttribute("data-theme", isDark ? "light" : "dark");
+        localStorage.setItem("sicop_theme", isDark ? "light" : "dark");
+    }
+
+    function saveData() {
+        localStorage.setItem("sicop_op", document.getElementById('op_name').value);
+        localStorage.setItem("sicop_meta", document.getElementById('raw_meta').value);
+        localStorage.setItem("sicop_hist", document.getElementById('raw_hist').value);
+        localStorage.setItem("sicop_extra", document.getElementById('raw_extra').value);
+    }
+
+    function loadData() {
+        if(localStorage.getItem("sicop_theme") === "dark") document.body.setAttribute("data-theme", "dark");
+        if(localStorage.getItem("sicop_op")) document.getElementById('op_name').value = localStorage.getItem("sicop_op");
+        if(localStorage.getItem("sicop_meta")) document.getElementById('raw_meta').value = localStorage.getItem("sicop_meta");
+        if(localStorage.getItem("sicop_hist")) document.getElementById('raw_hist').value = localStorage.getItem("sicop_hist");
+        if(localStorage.getItem("sicop_extra")) document.getElementById('raw_extra').value = localStorage.getItem("sicop_extra");
+    }
+
+    window.onload = loadData;
+
+    // --- FUNÇÕES PRINCIPAIS ---
+
+    function tab(id) {
+        document.querySelectorAll('.tab-content').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function processar() {
+        const meta = document.getElementById('raw_meta').value;
+        const hist = document.getElementById('raw_hist').value;
+        const extra = document.getElementById('raw_extra').value;
+        const op = document.getElementById('op_name').value;
+
+        if(!meta && !hist) return alert("Preencha os dados de entrada!");
+        if(!op) alert("ATENÇÃO: Preencha seu NOME DE GUERRA no topo.");
+
+        const cl = (t) => t ? t.replace(/\*/g,'').trim().toUpperCase() : "";
+        const lines = meta.split('\n').map(l => cl(l));
+        
+        const find = (k) => {
+            for(let i=0; i<lines.length; i++) {
+                if(lines[i].includes(k)) {
+                    if(i+1 < lines.length && !lines[i+1].includes("---")) return lines[i+1];
+                }
+            }
+            return "";
+        };
+
+        // Preenchimento
+        let bi = (meta.match(/Boletim de Intervenção Nº\s*([\d\/]+)/i) || [])[1] || find("BOLETIM DE INTERVENÇÃO");
+        document.getElementById('f_bi').value = cl(bi);
+
+        let bo = find("REDS/CIAD");
+        if(!bo) bo = find("BOLETIM DE OCORRÊNCIA");
+        if(!bo || bo.length < 3) bo = "N/A";
+        document.getElementById('f_bo').value = cl(bo);
+
+        let reg = find("REGIONAL"); if(!reg || reg.includes("?")) reg = "CAPITAL";
+        document.getElementById('f_reg').value = reg;
+
+        let dataFull = find("DATA E HORA DO FATO") || find("DATA DE EMISSÃO");
+        if(dataFull.includes(",")) {
+            let p = dataFull.split(",");
+            document.getElementById('f_dat').value = p[0].trim();
+            document.getElementById('f_hor').value = p[1].trim();
+        } else {
+            document.getElementById('f_dat').value = dataFull;
+            document.getElementById('f_hor').value = "00:00";
+        }
+
+        let nat = find("NATUREZA PRINCIPAL");
+        document.getElementById('f_nat').value = nat;
+        document.getElementById('f_set').value = find("SETOR") || find("SETOR RESPONSÁVEL");
+
+        let prop = find("PRÓPRIO MUNICIPAL");
+        let end = find("ENDEREÇO");
+        if(prop.includes("/")) prop = prop.split("/")[1].trim();
+        let locFull = (prop.length>2) ? `${prop} - ${end}` : end;
+        document.getElementById('f_loc').value = locFull;
+
+        let rel = (meta.match(/Criação \/ ([^\/]+)/i) || [])[1] || find("RELATOR");
+        document.getElementById('f_rel').value = cl(rel);
+
+        let h = hist.replace(/Histórico\s*/i, '').replace(/\*/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+        let e = extra.replace(/\*/g,'').trim().toUpperCase();
+        
+        // Monta o texto oficial
+        document.getElementById('f_his').value = h + "\n\n--------------------------------------------\n" + "DADOS COMPLEMENTARES:\n" + e;
+
+        // Controle
+        document.getElementById('c_bi').innerText = bi || "";
+        let tipoLocal = (prop.length > 3 && !prop.includes("VIA PUBLICA")) ? "PRÓPRIO" : "VP";
+        document.getElementById('c_tipo').innerText = tipoLocal;
+        let classif = nat.split("-")[0].trim();
+        document.getElementById('c_class').innerText = classif;
+        document.getElementById('c_rec').innerText = op.toUpperCase();
+        document.getElementById('c_resumo').value = h;
+
+        audit(h, bi);
+    }
+
+    function audit(txt, bi) {
+        let l = document.getElementById('audit');
+        l.style.display = 'none'; l.innerHTML = "";
+        let err = false;
+        
+        if(!bi) l.innerHTML += "<div class='msg-err'>AVISO: BI não detectado (Preencha manualmente)</div>";
+        if(txt.length < 10) { l.innerHTML += "<div class='msg-err'>ERRO: HISTÓRICO CURTO</div>"; err = true; }
+
+        if(!err) {
+            document.getElementById('bw').disabled = false;
+            document.getElementById('bw').style.opacity = "1";
+            document.getElementById('bp').disabled = false;
+            document.getElementById('bp').style.opacity = "1";
+            l.style.display = 'block';
+            l.innerHTML += "<div class='msg-ok'>✅ DADOS VALIDADOS!</div>";
+        } else {
+            l.style.display = 'block';
+        }
+    }
+
+    function ia() {
+        let t = document.getElementById('raw_hist').value;
+        const r = [
+            [/HOUBE/g,"HOUVE"], [/MENAS/g,"MENOS"], [/SEJE/g,"SEJA"], [/MIM FEZ/g,"EU FIZ"],
+            [/A GENTE/g,"A GUARNIÇÃO"], [/MELIANTE/g,"AUTOR"], [/VAGABUNDO/g,"AUTOR"]
+        ];
+        let c = 0;
+        r.forEach(x => { if(t.match(x[0])) { t = t.replace(x[0], x[1]); c++; } });
+        document.getElementById('raw_hist').value = t;
+        processar();
+        alert(c > 0 ? `${c} correções.` : "Sem correções.");
+    }
+
+    // --- GERAR WORD (JUSTIFICADO) ---
+    function gerarWord() {
+        const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun, AlignmentType } = docx;
+        const v = (id) => document.getElementById(id).value || " ";
+        
+        const cell = (l, val, c=1) => new TableCell({ columnSpan:c, children:[
+            new Paragraph({children:[new TextRun({text:l, bold:true, size:16})]}),
+            new Paragraph({children:[new TextRun({text:val, bold:true, size:22})]})
+        ]});
+
+        const doc = new Document({
+            sections: [{
+                children: [
+                    new Paragraph({children:[new TextRun({text:"BOLETIM DE INTERVENÇÃO", bold:true, size:28})], alignment: AlignmentType.CENTER, spacing:{after:400}}),
+                    new Table({
+                        width: {size:100, type:WidthType.PERCENTAGE},
+                        rows: [
+                            new TableRow({children:[cell("BI Nº",v('f_bi')), cell("BO Nº",v('f_bo')), cell("REGIONAL",v('f_reg'))]}),
+                            new TableRow({children:[cell("DATA",v('f_dat')), cell("HORÁRIO",v('f_hor'),2)]}),
+                            new TableRow({children:[cell("NATUREZA",v('f_nat')), cell("SETOR",v('f_set'),2)]}),
+                            new TableRow({children:[cell("LOCAL",v('f_loc'),2), cell("RELATOR",v('f_rel'))]}),
+                            new TableRow({children:[new TableCell({columnSpan:3, children:[
+                                new Paragraph({children:[new TextRun({text:"HISTÓRICO", bold:true, size:16})]}),
+                                // AQUI APLICA A JUSTIFICAÇÃO
+                                new Paragraph({
+                                    children:[new TextRun({text:v('f_his'), font:"Courier New", size:20})],
+                                    alignment: AlignmentType.JUSTIFIED 
+                                })
+                            ]})]})
+                        ]
+                    })
+                ]
+            }]
+        });
+        Packer.toBlob(doc).then(blob => saveAs(blob, `BI_${v('f_bi').replace('/','-')}.docx`));
+    }
+
+    // --- GERAR PDF (JUSTIFICADO) ---
+    function gerarPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const v = (id) => document.getElementById(id).value || " ";
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("BOLETIM DE INTERVENÇÃO - GCMBH", 105, 15, { align: "center" });
+
+        doc.autoTable({
+            startY: 25,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 40, 85] },
+            body: [
+                ['BI Nº: ' + v('f_bi'), 'BO Nº: ' + v('f_bo'), 'REGIONAL: ' + v('f_reg')],
+                ['DATA: ' + v('f_dat'), { content: 'HORÁRIO: ' + v('f_hor'), colSpan: 2 }],
+                ['NATUREZA: ' + v('f_nat'), { content: 'SETOR: ' + v('f_set'), colSpan: 2 }],
+                [{ content: 'LOCAL: ' + v('f_loc'), colSpan: 2 }, 'RELATOR: ' + v('f_rel')],
+                [{ 
+                    content: 'HISTÓRICO:\n\n' + v('f_his'), 
+                    colSpan: 3, 
+                    // JUSTIFICAÇÃO NO PDF
+                    styles: { font: 'courier', fontSize: 10, halign: 'justify' } 
+                }]
+            ]
+        });
+
+        doc.save(`BI_${v('f_bi').replace('/','-')}.pdf`);
+    }
+
+    function copiarControle() {
+        let container = document.getElementById('area-controle');
+        let resumoVal = document.getElementById('c_resumo').value;
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = container.innerHTML;
+        let ta = tempDiv.querySelector('textarea');
+        let p = document.createElement('p');
+        p.innerText = resumoVal;
+        p.style.fontFamily = "Courier New";
+        p.style.textAlign = "justify"; // Justificar na cópia também
+        ta.parentNode.replaceChild(p, ta);
+        document.body.appendChild(tempDiv);
+        let range = document.createRange();
+        range.selectNode(tempDiv);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        document.body.removeChild(tempDiv);
+        alert("CONTROLE COPIADO!");
+    }
+
+    function limpar() {
+        if(confirm("Limpar todos os campos?")) {
+            localStorage.removeItem("sicop_meta");
+            localStorage.removeItem("sicop_hist");
+            localStorage.removeItem("sicop_extra");
+            document.querySelectorAll('input:not(#op_name), textarea').forEach(e => e.value = '');
+            document.getElementById('f_bo').value = 'N/A';
+        }
+    }
+</script>
+
+</body>
+</html>
