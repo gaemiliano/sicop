@@ -630,23 +630,17 @@ async function carregarDaNuvem() {
         }
 
         // --- 3. NOVO: ATUALIZA STATUS DAS CÂMERAS (INCLUÍDO AQUI) ---
-        if (dados.cameras && Array.isArray(dados.cameras)) {
-            try {
-                // Tenta limpar a tabela existente
-                db.run("DELETE FROM cameras");
-            } catch(e) {
-                // Se a tabela não existir no banco do celular, cria ela agora
-                db.run(`CREATE TABLE IF NOT EXISTS cameras (id INTEGER PRIMARY KEY, nome TEXT, status TEXT, lat REAL, lng REAL);`);
-            }
-
-            db.run("BEGIN TRANSACTION");
-            dados.cameras.forEach(c => {
-                db.run("INSERT INTO cameras (id, nome, status, lat, lng) VALUES (?, ?, ?, ?, ?)", 
-                [c.id, c.nome, c.status, c.lat, c.lng]);
-            });
-            db.run("COMMIT");
-            console.log("Status das câmeras atualizado via nuvem.");
-        }
+        if (dados.cameras) {
+    db.run("DELETE FROM status_cameras"); // Limpa o estado antigo
+    db.run("BEGIN TRANSACTION");
+    dados.cameras.forEach(c => {
+        // Salva cada status vindo da nuvem
+        db.run("INSERT OR REPLACE INTO status_cameras (nome, status, obs, data_update) VALUES (?, ?, ?, ?)", 
+        [c.nome, c.status, c.obs, c.data_update]);
+    });
+    db.run("COMMIT");
+    console.log("Status das câmeras atualizado via nuvem.");
+}
         
         // Finaliza e recarrega para aplicar as mudanças
         persistir().then(() => {
@@ -1521,4 +1515,5 @@ function limparAntigas() {
 }
 </script>
 </body>
+
 </html>
