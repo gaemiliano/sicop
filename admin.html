@@ -615,39 +615,47 @@
     // --- FUNÇÕES DE NUVEM (PRESERVADAS) ---
 
     async function salvarNaNuvem() {
-    if (!confirm("⚠️ ATENÇÃO: Enviar dados e STATUS das câmeras para a nuvem?")) return;
+    if (!confirm("⚠️ Enviar dados e Status das Câmeras para a nuvem?")) return;
 
-    showToast("☁️ Enviando alterações...", "info");
+    showToast("☁️ Preparando envio...", "info");
     
-    // 1. Coleta Usuários
-    const resUsers = db.exec("SELECT * FROM usuarios");
-    const listaUsuarios = resUsers.length ? sqlToObj(resUsers[0]) : [];
-
-    // 2. Coleta Ocorrências
-    const resOco = db.exec("SELECT * FROM ocorrencias");
-    const listaOcorrencias = resOco.length ? sqlToObj(resOco[0]) : [];
-
-    // 3. Coleta Status das Câmeras (FUNDAMENTAL)
-    const resCams = db.exec("SELECT * FROM status_cameras");
-    const listaStatusCams = resCams.length ? sqlToObj(resCams[0]) : [];
-
-    // Monta o pacote completo
-    const payload = {
-        usuarios: listaUsuarios, 
-        ocorrencias: listaOcorrencias,
-        cameras: listaStatusCams // Agora o Index vai receber isto!
-    };
-
     try {
+        // 1. Coleta Usuários
+        const resUsers = db.exec("SELECT * FROM usuarios");
+        const listaUsuarios = resUsers.length ? sqlToObj(resUsers[0]) : [];
+
+        // 2. Coleta Ocorrências
+        const resOco = db.exec("SELECT * FROM ocorrencias");
+        const listaOcorrencias = resOco.length ? sqlToObj(resOco[0]) : [];
+
+        // 3. Coleta STATUS DAS CÂMERAS (O que estava faltando!)
+        const resStatusCams = db.exec("SELECT * FROM status_cameras");
+        const listaStatus = resStatusCams.length ? sqlToObj(resStatusCams[0]) : [];
+
+        // Monta o pacote para a nuvem
+        const payload = {
+            usuarios: listaUsuarios, 
+            ocorrencias: listaOcorrencias,
+            cameras: listaStatus // Enviando a lista de inoperantes
+        };
+
         const req = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+            headers: { 
+                "Content-Type": "application/json", 
+                "X-Master-Key": API_KEY 
+            },
             body: JSON.stringify(payload)
         });
-        if (req.ok) showToast("✅ Nuvem Atualizada!", "success");
-        else throw new Error("Erro ao salvar");
+
+        if (req.ok) {
+            showToast("✅ Tudo salvo na Nuvem!", "success");
+        } else {
+            throw new Error("Falha ao salvar");
+        }
     } catch (e) {
-        showToast("❌ Falha no envio.", "error");
+        console.error(e);
+        showToast("❌ Erro ao sincronizar.", "error");
     }
 }
 
@@ -705,4 +713,5 @@
 </script>
 
 </body>
+
 </html>
