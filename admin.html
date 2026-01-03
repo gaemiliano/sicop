@@ -675,15 +675,22 @@
             db.run("BEGIN TRANSACTION");
 
             // Importa Usuários
-            if (dados.usuarios && Array.isArray(dados.usuarios)) {
-                db.run("DELETE FROM usuarios WHERE id > 1"); 
-                dados.usuarios.forEach(u => {
-                    db.run(`INSERT OR REPLACE INTO usuarios (id, user, pass, role, nome, orgao, status) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-                            [u.id, u.user, u.pass, u.role, u.nome, u.orgao, u.status || 'ATIVO']);
-                });
-            }
+            if (dados.cameras && Array.isArray(dados.cameras)) {
+    try {
+        db.run("DELETE FROM status_cameras"); // Limpa o que tem no Admin
+    } catch(e) {
+        // Cria a tabela se o Admin ainda não tiver
+        db.run("CREATE TABLE IF NOT EXISTS status_cameras (id INTEGER PRIMARY KEY, nome TEXT, status TEXT, obs TEXT, data_update TEXT)");
+    }
 
+    db.run("BEGIN TRANSACTION");
+    dados.cameras.forEach(c => {
+        db.run("INSERT INTO status_cameras (nome, status, obs, data_update) VALUES (?, ?, ?, ?)", 
+        [c.nome, c.status, c.obs, c.data_update]);
+    });
+    db.run("COMMIT");
+    console.log("Status das câmeras recebido do celular!");
+}
             // Importa Ocorrências
             if (dados.ocorrencias && Array.isArray(dados.ocorrencias)) {
                 try {
@@ -715,3 +722,4 @@
 </body>
 
 </html>
+
