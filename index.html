@@ -654,12 +654,30 @@ async function carregarDaNuvem() {
 }
 
 async function salvarNaNuvem() {
-    if (!confirm("⚠️ Enviar dados locais para a nuvem?")) return;
+    if (!confirm("⚠️ Enviar dados locais e Status das Câmeras para a nuvem?")) return;
     showToast("☁️ Enviando...", "info");
 
+    // 1. Coleta Usuários
     const resUsers = db.exec("SELECT * FROM usuarios");
     const listaUsuarios = resUsers.length ? sqlToObj(resUsers[0]) : [];
-    const payload = { usuarios: listaUsuarios, ocorrencias: OCORRENCIAS };
+
+    // 2. Coleta Status das Câmeras (A PARTE QUE FALTAVA)
+    // Isso garante que se o GCM marcou uma câmera como "OFFLINE", isso sobe pra nuvem.
+    let listaStatusCams = [];
+    try {
+        const resCams = db.exec("SELECT * FROM status_cameras");
+        listaStatusCams = resCams.length ? sqlToObj(resCams[0]) : [];
+    } catch (e) {
+        console.log("Nenhuma tabela de status encontrada ainda.");
+    }
+
+    // 3. Monta o pacote completo
+    // Note que adicionamos 'cameras': listaStatusCams
+    const payload = { 
+        usuarios: listaUsuarios, 
+        ocorrencias: OCORRENCIAS, 
+        cameras: listaStatusCams 
+    };
 
     try {
         const req = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -669,7 +687,7 @@ async function salvarNaNuvem() {
         });
 
         if (req.ok) {
-            showToast("✅ Salvo na Nuvem!", "success");
+            showToast("✅ Dados e Status Salvos!", "success");
         } else {
             const errData = await req.json();
             alert("Erro ao Salvar: " + (errData.message || "Chave API incorreta"));
@@ -678,7 +696,6 @@ async function salvarNaNuvem() {
         alert("Erro de conexão: " + e.message);
     }
 }
-
 // ----------------------------------------------------
 
 document.addEventListener('keydown', function(e) {
@@ -1517,3 +1534,4 @@ function limparAntigas() {
 </body>
 
 </html>
+
