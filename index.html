@@ -1172,7 +1172,7 @@ function salvarOcorrencia() {
   const btnSave = document.getElementById('btnSave'); 
   btnSave.disabled = true; 
   btnSave.innerText = "Salvando...";
-  
+
   try {
       const selCam = document.getElementById('selCam');
       const isManual = selCam.value === "MANUAL";
@@ -1204,11 +1204,11 @@ function salvarOcorrencia() {
       const finishSave = () => {
           try {
               if(EDITING_ID === null) {
-                  // INSERÇÃO DE NOVA OCORRÊNCIA
+                  // --- REGISTRO DE NOVA OCORRÊNCIA ---
                   db.run(`INSERT INTO ocorrencias (camera, area, gravidade, motivo, acao, obs, status, inicio, img_id, lat, lng, endereco) VALUES (?,?,?,?,?,?,'ABERTA',?,?,?,?,?)`, 
                   [nomeFinal, area, document.getElementById('selGrav').value, document.getElementById('selMot').value, document.getElementById('selAcao').value, document.getElementById('txtObs').value, new Date().toISOString(), imgId, latF, lngF, enderecoSalvo]);
 
-                  // --- CONEXÃO NEURAL: NOTIFICA O CODEX SOBRE A NOVA OCORRÊNCIA ---
+                  // --- [NOVO] NOTIFICAÇÃO PARA O CODEX ---
                   window.parent.postMessage({ 
                       action: 'NOVA_OCORRENCIA', 
                       detalhes: { 
@@ -1218,8 +1218,13 @@ function salvarOcorrencia() {
                       } 
                   }, '*');
 
+                  // REGISTRO NA CAIXA PRETA
+                  if (typeof registrarAcao === "function") {
+                      registrarAcao("NOVA_OCORRENCIA", { local: nomeFinal, motivo: document.getElementById('selMot').value });
+                  }
+
               } else {
-                  // ATUALIZAÇÃO DE OCORRÊNCIA EXISTENTE
+                  // --- ATUALIZAÇÃO DE REGISTRO EXISTENTE ---
                   let sql = "UPDATE ocorrencias SET gravidade=?, motivo=?, acao=?, obs=?, endereco=?";
                   let params = [document.getElementById('selGrav').value, document.getElementById('selMot').value, document.getElementById('selAcao').value, document.getElementById('txtObs').value, enderecoSalvo];
                   if(imgId) { sql += ", img_id=?"; params.push(imgId); } 
@@ -1588,5 +1593,6 @@ window.addEventListener('message', function(event) {
 </body>
 
 </html>
+
 
 
