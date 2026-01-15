@@ -1169,17 +1169,31 @@ function focarOcorrencia(nome) {
 function fecharModal() { document.getElementById('modal').style.display='none'; }
 
 function salvarOcorrencia() {
-  const btnSave = document.getElementById('btnSave'); btnSave.disabled = true; btnSave.innerText = "Salvando...";
+  const btnSave = document.getElementById('btnSave'); 
+  btnSave.disabled = true; 
+  btnSave.innerText = "Salvando...";
+  
   try {
       const selCam = document.getElementById('selCam');
       const isManual = selCam.value === "MANUAL";
-      let nomeFinal = selCam.value; let latF = null; let lngF = null;
+      let nomeFinal = selCam.value; 
+      let latF = null; 
+      let lngF = null;
 
       if (isManual) {
-          if (tempManualLocation) { nomeFinal = tempManualLocation.nome; latF = tempManualLocation.lat; lngF = tempManualLocation.lng; } 
-          else { btnSave.disabled = false; btnSave.innerText = "CONFIRMAR"; return alert("Erro: Localização manual não detectada."); }
+          if (tempManualLocation) { 
+              nomeFinal = tempManualLocation.nome; 
+              latF = tempManualLocation.lat; 
+              lngF = tempManualLocation.lng; 
+          } else { 
+              btnSave.disabled = false; 
+              btnSave.innerText = "CONFIRMAR"; 
+              return alert("Erro: Localização manual não detectada."); 
+          }
       } else {
-          nomeFinal = selCam.value; const c = CAMERAS.find(x => x.nome === nomeFinal); if (c) { latF = c.lat; lngF = c.lng; }
+          nomeFinal = selCam.value; 
+          const c = CAMERAS.find(x => x.nome === nomeFinal); 
+          if (c) { latF = c.lat; lngF = c.lng; }
       }
 
       const area = isManual ? 'MANUAL' : (CAMERAS.find(c => c.nome === nomeFinal)?.area || 'GERAL');
@@ -1190,22 +1204,54 @@ function salvarOcorrencia() {
       const finishSave = () => {
           try {
               if(EDITING_ID === null) {
+                  // INSERÇÃO DE NOVA OCORRÊNCIA
                   db.run(`INSERT INTO ocorrencias (camera, area, gravidade, motivo, acao, obs, status, inicio, img_id, lat, lng, endereco) VALUES (?,?,?,?,?,?,'ABERTA',?,?,?,?,?)`, 
                   [nomeFinal, area, document.getElementById('selGrav').value, document.getElementById('selMot').value, document.getElementById('selAcao').value, document.getElementById('txtObs').value, new Date().toISOString(), imgId, latF, lngF, enderecoSalvo]);
+
+                  // --- CONEXÃO NEURAL: NOTIFICA O CODEX SOBRE A NOVA OCORRÊNCIA ---
+                  window.parent.postMessage({ 
+                      action: 'NOVA_OCORRENCIA', 
+                      detalhes: { 
+                          motivo: document.getElementById('selMot').value,
+                          local: nomeFinal,
+                          gravidade: document.getElementById('selGrav').value
+                      } 
+                  }, '*');
+
               } else {
+                  // ATUALIZAÇÃO DE OCORRÊNCIA EXISTENTE
                   let sql = "UPDATE ocorrencias SET gravidade=?, motivo=?, acao=?, obs=?, endereco=?";
                   let params = [document.getElementById('selGrav').value, document.getElementById('selMot').value, document.getElementById('selAcao').value, document.getElementById('txtObs').value, enderecoSalvo];
                   if(imgId) { sql += ", img_id=?"; params.push(imgId); } 
                   sql += " WHERE id=?"; params.push(EDITING_ID);
                   db.run(sql, params);
               }
-              persistir().then(() => { fecharModal(); atualizarTudo(); tempManualLocation = null; btnSave.disabled = false; });
-          } catch (errSQL) { alert("ERRO BANCO: " + errSQL.message); btnSave.disabled = false; btnSave.innerText = "CONFIRMAR"; }
+
+              persistir().then(() => { 
+                  fecharModal(); 
+                  atualizarTudo(); 
+                  tempManualLocation = null; 
+                  btnSave.disabled = false; 
+                  btnSave.innerText = "CONFIRMAR";
+              });
+          } catch (errSQL) { 
+              alert("ERRO BANCO: " + errSQL.message); 
+              btnSave.disabled = false; 
+              btnSave.innerText = "CONFIRMAR"; 
+          }
       };
 
-      if (file) { imgDB.files.put({ id: imgId, blob: file }).then(finishSave).catch(e => { alert("Erro ao salvar imagem: " + e); btnSave.disabled = false; }); } 
-      else { finishSave(); }
-  } catch (e) { alert("Erro crítico salvar: " + e.message); btnSave.disabled = false; }
+      if (file) { 
+          imgDB.files.put({ id: imgId, blob: file })
+            .then(finishSave)
+            .catch(e => { alert("Erro ao salvar imagem: " + e); btnSave.disabled = false; }); 
+      } else { 
+          finishSave(); 
+      }
+  } catch (e) { 
+      alert("Erro crítico salvar: " + e.message); 
+      btnSave.disabled = false; 
+  }
 }
 
 function editarOcorrencia(id) {
@@ -1530,8 +1576,17 @@ function limparAntigas() {
     db.run("DELETE FROM ocorrencias WHERE status = 'ENCERRADA' AND inicio < ?", [cutoff.toISOString()]);
     persistir(); atualizarTudo(); alert("Limpeza concluída!");
 }
+  // --- OUVINDO COMANDOS DO CODEX ---
+window.addEventListener('message', function(event) {
+    const comando = event.data;
+    if (comando.action === 'BUSCAR_CAMERA') {
+        // Esta função já existe no seu código e move o mapa
+        irParaEndereco(comando.local);
+    }
+});
 </script>
 </body>
 
 </html>
+
 
